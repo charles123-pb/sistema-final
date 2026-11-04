@@ -30,6 +30,7 @@ export interface PatientSummary {
   whatsappConsent: boolean;
   email?: string;
   activeAllergies: number;
+  allergiesAvailable?: boolean;
   active: boolean;
   createdAt: string;
   version: number;

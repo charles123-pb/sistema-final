@@ -16,6 +16,9 @@
       (click)="selectSurface(face.surface)"
     >
       <span class="surface-letter" aria-hidden="true">{{ face.abbreviation }}</span>
+      @if (face.findingCount > 1) {
+        <span class="multiple-findings" aria-hidden="true">+{{ face.findingCount - 1 }}</span>
+      }
     </button>
   }
   @if (absent()) {

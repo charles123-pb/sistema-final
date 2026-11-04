@@ -42,11 +42,6 @@
           ><svg lucideMessageCircle></svg><span>Seguimiento</span></a
         >
       }
-      @if (canUseCopilot()) {
-        <a routerLink="/sistema/copiloto" routerLinkActive="active" (click)="menuOpen.set(false)"
-          ><svg lucideBot></svg><span>DentalIA</span></a
-        >
-      }
     </nav>
     <div class="sidebar-footer">
       @if (canUseAdmin()) {

@@ -9,7 +9,6 @@ import {
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import {
   LucideBell,
-  LucideBot,
   LucideCalendarDays,
   LucideLayoutDashboard,
   LucideLogOut,
@@ -31,7 +30,6 @@ import { canLeaveEditor, PendingChangesEditor } from '../core/navigation/pending
     RouterLink,
     RouterLinkActive,
     LucideBell,
-    LucideBot,
     LucideCalendarDays,
     LucideLayoutDashboard,
     LucideLogOut,
@@ -58,7 +56,6 @@ export class SystemShell {
   readonly canUseClinical = computed(() => this.auth.hasPermission('CLINICA_LEER'));
   readonly canUseFinance = computed(() => this.auth.hasPermission('FINANZA_LEER'));
   readonly canUseFollowUp = computed(() => this.auth.hasPermission('SEGUIMIENTO_LEER'));
-  readonly canUseCopilot = computed(() => this.auth.hasPermission('IA_LEER'));
   readonly canUseAdmin = computed(() => this.auth.hasPermission('USUARIO_LEER'));
   readonly initials = computed(
     () =>

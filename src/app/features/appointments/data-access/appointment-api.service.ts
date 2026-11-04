@@ -106,7 +106,7 @@ export class AppointmentApiService {
           errorMessage: 'No se pudo crear la cita.',
         },
       )
-      .pipe(switchMap((appointmentId) => this.get(Number(appointmentId))));
+      .pipe(switchMap((appointmentId) => this.api.refreshAfterMutation(() => this.get(Number(appointmentId)))));
   }
 
   createFromRequest(
@@ -124,7 +124,7 @@ export class AppointmentApiService {
         },
         { errorMessage: 'No se pudo crear la cita desde la solicitud.' },
       )
-      .pipe(switchMap((appointmentId) => this.get(Number(appointmentId))));
+      .pipe(switchMap((appointmentId) => this.api.refreshAfterMutation(() => this.get(Number(appointmentId)))));
   }
 
   update(id: number, payload: AppointmentPayload & { version: number }): Observable<Appointment> {
@@ -136,7 +136,7 @@ export class AppointmentApiService {
           errorMessage: 'No se pudo reprogramar la cita.',
         },
       )
-      .pipe(switchMap((appointmentId) => this.get(Number(appointmentId))));
+      .pipe(switchMap((appointmentId) => this.api.refreshAfterMutation(() => this.get(Number(appointmentId)))));
   }
 
   changeStatus(
@@ -156,6 +156,6 @@ export class AppointmentApiService {
         },
         { errorMessage: 'No se pudo cambiar el estado de la cita.' },
       )
-      .pipe(switchMap((appointmentId) => this.get(Number(appointmentId))));
+      .pipe(switchMap((appointmentId) => this.api.refreshAfterMutation(() => this.get(Number(appointmentId)))));
   }
 }

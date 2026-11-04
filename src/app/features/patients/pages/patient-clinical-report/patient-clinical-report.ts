@@ -8,7 +8,7 @@ import {
   signal,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { timeout } from 'rxjs';
+import { distinctUntilChanged, map, timeout } from 'rxjs';
 import { READ_REQUEST_TIMEOUT_MS } from '../../../../core/supabase/request-timeout';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { SupabaseErrorService } from '../../../../core/supabase/supabase-error.service';
@@ -41,7 +41,7 @@ export class PatientClinicalReportPage implements OnInit {
   readonly error = signal('');
   readonly downloadError = signal('');
   readonly downloadingId = signal<number | null>(null);
-  readonly patientId = Number(this.route.snapshot.paramMap.get('id'));
+  patientId = 0;
   private requestId = 0;
   readonly clinicalFields: { key: keyof ClinicalEncounter; label: string }[] = [
     { key: 'consultationReason', label: 'Motivo de consulta' },
@@ -59,18 +59,27 @@ export class PatientClinicalReportPage implements OnInit {
   ];
 
   ngOnInit(): void {
-    this.load();
+    this.route.paramMap.pipe(
+      map((params) => Number(params.get('id'))),
+      distinctUntilChanged(),
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe((id) => {
+      this.patientId = id;
+      this.downloadingId.set(null);
+      this.downloadError.set('');
+      this.load();
+    });
   }
   load(): void {
+    const requestId = ++this.requestId;
+    this.report.set(null);
     if (!Number.isSafeInteger(this.patientId) || this.patientId <= 0) {
       this.loading.set(false);
       this.error.set('El identificador del paciente no es válido.');
       return;
     }
-    const requestId = ++this.requestId;
     this.loading.set(true);
     this.error.set('');
-    this.report.set(null);
     this.api
       .load(this.patientId)
       .pipe(timeout({ first: READ_REQUEST_TIMEOUT_MS }), takeUntilDestroyed(this.destroyRef))
@@ -149,13 +158,15 @@ export class PatientClinicalReportPage implements OnInit {
   }
   download(file: PatientFile): void {
     if (this.downloadingId() !== null || !this.report()) return;
+    const patientId = this.patientId;
     this.downloadingId.set(file.id);
     this.downloadError.set('');
     this.patients
-      .downloadFile(this.patientId, file.id)
+      .downloadFile(patientId, file.id)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (response) => {
+          if (this.patientId !== patientId) return;
           this.downloadingId.set(null);
           if (!response.body) {
             this.downloadError.set('El archivo no está disponible.');
@@ -171,6 +182,7 @@ export class PatientClinicalReportPage implements OnInit {
           setTimeout(() => URL.revokeObjectURL(url), 60_000);
         },
         error: (error: unknown) => {
+          if (this.patientId !== patientId) return;
           this.downloadingId.set(null);
           this.downloadError.set(
             this.errors.toUserMessage(error, 'No se pudo descargar el archivo.'),

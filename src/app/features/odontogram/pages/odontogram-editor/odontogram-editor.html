@@ -218,6 +218,7 @@
           </div>
           <div
             class="chart-scroll"
+            #chartMap
             tabindex="0"
             role="region"
             aria-label="Mapa de piezas. Desplaza horizontalmente para ver ambas mitades."
@@ -277,6 +278,11 @@
                 </section>
               }
             </div>
+          </div>
+          <div class="mobile-detail-access">
+            <button type="button" (click)="showDetail(detailPanel)">
+              Revisar pieza {{ selectedTooth() }} · {{ selectedFindings().length }} hallazgos
+            </button>
           </div>
           <p class="chart-hint">
             <svg lucideMousePointerClick></svg>Toca una superficie para seleccionarla. Toca el número
@@ -365,6 +371,9 @@
             </button>
           </div>
         </header>
+        <button class="return-to-map" type="button" (click)="showChartMap()">
+          Volver al mapa de piezas
+        </button>
         <p class="tooth-description">{{ toothDescription(selectedTooth()) }}</p>
 
         @if (current()) {

@@ -24,11 +24,10 @@ import {
   LucideSparkles,
   LucideTrash2,
 } from '@lucide/angular';
-import { catchError, forkJoin, Observable, of, timeout } from 'rxjs';
+import { catchError, distinctUntilChanged, forkJoin, map, Observable, of, timeout } from 'rxjs';
 import { READ_REQUEST_TIMEOUT_MS } from '../../../../core/supabase/request-timeout';
 import { ModalDirective } from '../../../../shared/ui/modal/modal.directive';
 import {
-  canLeaveEditor,
   protectBeforeUnload,
 } from '../../../../core/navigation/pending-changes.guard';
 import { AuthService } from '../../../../core/auth/auth.service';
@@ -42,7 +41,6 @@ import { TreatmentApiService } from '../../data-access/treatment-api.service';
 import { BudgetAgreementComponent } from '../../components/budget-agreement/budget-agreement';
 import {
   DentalService,
-  ItemStatus,
   PlanStatus,
   TreatmentItem,
   TreatmentPlan,
@@ -104,6 +102,7 @@ export class TreatmentPlanPage implements OnInit {
   readonly canWrite = signal(this.auth.hasPermission('TRATAMIENTO_ESCRIBIR'));
   private loadRequestId = 0;
   private accountRequestId = 0;
+  private activeEncounterId: number | null = null;
   readonly itemForm = this.fb.group({
     serviceId: this.fb.control<number | null>(null, Validators.required),
     tooth: ['', Validators.pattern(/^([1-4][1-8]|[5-8][1-5])$/)],
@@ -122,18 +121,54 @@ export class TreatmentPlanPage implements OnInit {
     nextSession: [''],
   });
   ngOnInit(): void {
-    const id =
-      this.embeddedEncounterId() ?? Number(this.route.snapshot.paramMap.get('encounterId'));
-    if (!id) {
-      void this.router.navigate(['/sistema/atencion']);
+    this.destroyRef.onDestroy(() => {
+      this.loadRequestId++;
+      this.accountRequestId++;
+    });
+    const embeddedId = this.embeddedEncounterId();
+    if (embeddedId !== null) {
+      this.openContext(embeddedId);
       return;
     }
-    this.load(id);
+    this.route.paramMap
+      .pipe(
+        map((params) => Number(params.get('encounterId'))),
+        distinctUntilChanged(),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((id) => this.openContext(id));
+  }
+  private openContext(id: number): void {
+    this.activeEncounterId = Number.isSafeInteger(id) && id > 0 ? id : null;
+    this.loadRequestId++;
+    this.accountRequestId++;
+    this.encounter.set(null);
+    this.plan.set(null);
+    this.services.set([]);
+    this.account.set(null);
+    this.accountLoading.set(false);
+    this.accountError.set('');
+    this.success.set('');
+    this.addOpen.set(false);
+    this.selectedItem.set(null);
+    this.acceptance.set(false);
+    this.planForm.reset();
+    this.itemForm.reset();
+    this.evolutionForm.reset();
+    if (this.activeEncounterId === null) {
+      this.loading.set(false);
+      this.error.set('El identificador de la atención no es válido.');
+      return;
+    }
+    this.load(this.activeEncounterId);
   }
   retry(): void {
-    const id =
-      this.embeddedEncounterId() ?? Number(this.route.snapshot.paramMap.get('encounterId'));
-    if (id > 0) this.load(id);
+    if (this.activeEncounterId === null || this.isSavingChanges()) return;
+    if (this.paymentEditor()?.hasUnsavedChanges() || this.budgetEditor()?.hasUnsavedChanges()) {
+      this.error.set('Guarda o cierra la firma pendiente antes de actualizar el tratamiento.');
+      return;
+    }
+    this.load(this.activeEncounterId);
   }
   private load(id: number): void {
     const requestId = ++this.loadRequestId;
@@ -144,7 +179,7 @@ export class TreatmentPlanPage implements OnInit {
       encounter: this.clinical.get(id),
       services: this.api.catalog().pipe(
         catchError(() => {
-          this.catalogWarning.set(
+          if (requestId === this.loadRequestId) this.catalogWarning.set(
             'No se pudo cargar el catálogo de servicios. Puedes ver el plan y reintentar.',
           );
           return of([] as DentalService[]);
@@ -376,7 +411,7 @@ export class TreatmentPlanPage implements OnInit {
   }
   private setPlan(p: TreatmentPlan): void {
     const unsaved =
-      this.planForm.dirty && p.status === 'BORRADOR' ? this.planForm.getRawValue() : null;
+      this.plan()?.id === p.id && this.planForm.dirty && p.status === 'BORRADOR' ? this.planForm.getRawValue() : null;
     this.plan.set(p);
     this.planForm.reset({ discount: p.discount, observations: p.observations ?? '' });
     this.planForm.markAsPristine();
@@ -433,9 +468,16 @@ export class TreatmentPlanPage implements OnInit {
   refreshSignedPlan(): void {
     const plan = this.plan();
     if (!plan) return;
+    const contextId = this.activeEncounterId;
     this.api.get(plan.id).pipe(timeout({ first: READ_REQUEST_TIMEOUT_MS }), takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: (updated) => { this.setPlan(updated); this.success.set('Presupuesto firmado y guardado.'); },
-      error: (e: unknown) => this.error.set(this.errors.toUserMessage(e, 'La firma se guardó, pero no se pudo actualizar el plan. Actualiza la pantalla.')),
+      next: (updated) => {
+        if (this.activeEncounterId !== contextId || this.plan()?.id !== plan.id) return;
+        this.setPlan(updated); this.success.set('Presupuesto firmado y guardado.');
+      },
+      error: (e: unknown) => {
+        if (this.activeEncounterId === contextId && this.plan()?.id === plan.id)
+          this.error.set(this.errors.toUserMessage(e, 'La firma se guardó, pero no se pudo actualizar el plan. Actualiza la pantalla.'));
+      },
     });
   }
   private run(

@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
 import { NEVER, of, Subject } from 'rxjs';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { PatientApiService } from '../../../patients/data-access/patient-api.service';
@@ -294,5 +294,69 @@ describe('Agenda: búsqueda automática desde solicitudes', () => {
     expect(agenda.selectedPatient()?.id).toBe(other.id);
     expect(agenda.form.controls.patientSearch.value).toBe(other.fullName);
     expect(agenda.searchingPatients()).toBe(false);
+  });
+});
+
+
+describe('Agenda: permisos y conservación del borrador', () => {
+  let page: Agenda;
+  let create: ReturnType<typeof vi.fn>;
+  let changeStatus: ReturnType<typeof vi.fn>;
+  beforeEach(() => {
+    create = vi.fn(() => of({}));
+    changeStatus = vi.fn(() => of({}));
+    TestBed.configureTestingModule({ providers: [
+      provideRouter([]),
+      { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: convertToParamMap({}) } } },
+      { provide: AuthService, useValue: { hasPermission: () => true } },
+      { provide: PatientApiService, useValue: {} },
+      { provide: BookingRequestApiService, useValue: {} },
+      { provide: AppointmentApiService, useValue: { create, changeStatus, availability: () => of([]) } },
+    ] });
+    page = TestBed.runInInjectionContext(() => new Agenda());
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it('bloquea escrituras y diálogos al invocar acciones sin CITA_ESCRIBIR', () => {
+    page.canWrite.set(false);
+    const prompt = vi.spyOn(window, 'prompt');
+    const confirm = vi.spyOn(window, 'confirm');
+    const appointment = { id: 1, status: 'CONFIRMADA', version: 0 } as Appointment;
+    page.openNew(); page.openEdit(appointment); page.save();
+    page.advance(appointment); page.cancel(appointment); page.noShow(appointment);
+    expect(page.modalOpen()).toBe(false);
+    expect(create).not.toHaveBeenCalled();
+    expect(changeStatus).not.toHaveBeenCalled();
+    expect(prompt).not.toHaveBeenCalled(); expect(confirm).not.toHaveBeenCalled();
+  });
+
+  it('permite abrir una atención al odontólogo sin darle permiso de modificar citas', () => {
+    page.canWrite.set(false);
+    const waiting = { id: 1, status: 'EN_ESPERA' } as Appointment;
+    expect(page.canAdvance(waiting)).toBe(true);
+    expect(page.canAdvance({ ...waiting, status: 'CONFIRMADA' })).toBe(false);
+    const router = TestBed.inject(Router);
+    const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+    page.advance(waiting);
+    expect(navigate).toHaveBeenCalledWith(['/sistema/atencion'], { queryParams: { appointmentId: 1 } });
+    expect(changeStatus).not.toHaveBeenCalled();
+  });
+
+  it('cancelar el cierre o una nueva cita conserva el borrador y horario', () => {
+    page.openNew();
+    page.form.controls.reason.setValue('Control pendiente');
+    page.form.markAsDirty(); page.selectedStart.set('2026-10-07T14:00:00Z');
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    page.closeModal(); page.openNew();
+    expect(page.modalOpen()).toBe(true);
+    expect(page.form.controls.reason.value).toBe('Control pendiente');
+    expect(page.selectedStart()).toBe('2026-10-07T14:00:00Z');
+  });
+
+  it('protege la recarga mientras la cita se está guardando', () => {
+    page.saving.set(true);
+    const event = new Event('beforeunload', { cancelable: true });
+    page.beforeUnload(event); page.closeModal();
+    expect(event.defaultPrevented).toBe(true);
   });
 });

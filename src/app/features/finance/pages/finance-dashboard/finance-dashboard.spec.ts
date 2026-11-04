@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { FinanceApiService } from '../../data-access/finance-api.service';
 import { Account, Payment } from '../../models/finance.models';
@@ -31,5 +31,27 @@ describe('Finanzas: contexto de atención', () => {
     expect(page.returnEncounterId()).toBe(3);
     expect(pay).not.toHaveBeenCalled();
     expect(page.modal()).toBeNull();
+  });
+});
+
+
+describe('Finanzas: reintentos de gastos', () => {
+  it('reutiliza la operación tras una respuesta perdida y la renueva al cambiar datos', () => {
+    const expense = vi.fn((_payload: unknown, _operationId: string) => throwError(() => new Error('Respuesta perdida')));
+    TestBed.configureTestingModule({ providers: [
+      { provide: AuthService, useValue: { hasPermission: () => true } },
+      { provide: ActivatedRoute, useValue: {} },
+      { provide: FinanceApiService, useValue: { expense } },
+    ] });
+    const page = TestBed.runInInjectionContext(() => new FinanceDashboardPage());
+    page.cash.set({ id: 2 } as never);
+    page.methods.set([{ id: 1, referenceRequired: false } as never]);
+    page.expenseForm.setValue({ category: 'Insumos', description: 'Guantes', provider: '', documentReference: '', methodId: 1, amount: 20 });
+    page.saveExpense();
+    page.saveExpense();
+    expect(expense.mock.calls[0][1]).toBe(expense.mock.calls[1][1]);
+    page.expenseForm.controls.amount.setValue(30);
+    page.saveExpense();
+    expect(expense.mock.calls[2][1]).not.toBe(expense.mock.calls[0][1]);
   });
 });

@@ -1,0 +1,80 @@
+<header class="followup-heading">
+  <div>
+    <small>DESPUÉS DE LA ATENCIÓN</small>
+    <h2>Seguimiento postconsulta</h2>
+    <p>
+      Revisa primero las alertas y las respuestas pendientes. Marcar revisado requiere valoración
+      profesional.
+    </p>
+  </div>
+  <button
+    class="icon-button"
+    type="button"
+    aria-label="Actualizar seguimientos"
+    (click)="refresh.emit()"
+    [disabled]="loading() || refreshing()"
+  >
+    <svg lucideRefreshCw [class.animate-spin]="refreshing()"></svg>
+  </button>
+</header>
+<div class="followup-filters" role="group" aria-label="Filtrar seguimientos">
+  <button
+    type="button"
+    [attr.aria-pressed]="followupFilter() === 'all'"
+    (click)="filterChange.emit('all')"
+  >
+    Todos
+  </button>
+  <button
+    type="button"
+    [attr.aria-pressed]="followupFilter() === 'review'"
+    (click)="filterChange.emit('review')"
+  >
+    Por revisar · {{ pendingReviewCount() }}
+  </button>
+  <button
+    type="button"
+    [attr.aria-pressed]="followupFilter() === 'scheduled'"
+    (click)="filterChange.emit('scheduled')"
+  >
+    Programados y enviados
+  </button>
+  <button
+    type="button"
+    [attr.aria-pressed]="followupFilter() === 'closed'"
+    (click)="filterChange.emit('closed')"
+  >
+    Revisados y cerrados
+  </button>
+</div>
+<div class="followups-grid">
+  @for (followup of items(); track followup.id) {
+    <article [class.alert]="followup.status === 'ALERTA'">
+      <header>
+        <span class="avatar">{{ initials(followup.patientName) }}</span>
+        <div>
+          <strong>{{ followup.patientName }}</strong
+          ><small>{{ followup.scheduledFor | date: 'dd/MM/yyyy HH:mm' }}</small>
+        </div>
+        <i class="followup-status" [attr.data-status]="followup.status">{{
+          statusLabel(followup.status)
+        }}</i>
+      </header>
+      @if (followup.response) {
+        <blockquote>“{{ followup.response }}”</blockquote>
+      }
+      @if (followup.alertReason) {
+        <p class="failure">{{ followup.alertReason }}</p>
+      }
+      @if ((followup.status === 'ALERTA' || followup.status === 'RESPONDIDO') && canReview()) {
+        <button (click)="review.emit(followup)"><svg lucideCheck></svg>Marcar revisado</button>
+      }
+    </article>
+  } @empty {
+    <div class="followup-empty" role="status">
+      <svg lucideCheckCheck></svg>
+      <h3>{{ loading() ? 'Cargando seguimientos…' : 'No hay seguimientos en esta vista' }}</h3>
+      <p>Prueba otro filtro para consultar los registros disponibles.</p>
+    </div>
+  }
+</div>

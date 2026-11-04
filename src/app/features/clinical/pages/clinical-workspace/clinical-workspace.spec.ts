@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
-import { ActivatedRoute, convertToParamMap } from '@angular/router';
-import { of, Subject, throwError } from 'rxjs';
+import { ActivatedRoute, convertToParamMap, ParamMap } from '@angular/router';
+import { BehaviorSubject, of, Subject, throwError } from 'rxjs';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { AppointmentApiService } from '../../../appointments/data-access/appointment-api.service';
 import { Appointment } from '../../../appointments/models/appointment.models';
@@ -13,6 +13,7 @@ describe('Atención: continuidad y protección del paciente', () => {
   const encounter = { id: 3, patientId: 8, appointmentId: 42, status: 'BORRADOR', version: 1 } as ClinicalEncounter;
   let page: ClinicalWorkspace;
   let context: Record<string, string>;
+  let queryParams: BehaviorSubject<ParamMap>;
   let start: ReturnType<typeof vi.fn>;
   let get: ReturnType<typeof vi.fn>;
   let update: ReturnType<typeof vi.fn>;
@@ -23,6 +24,7 @@ describe('Atención: continuidad y protección del paciente', () => {
 
   beforeEach(() => {
     context = {};
+    queryParams = new BehaviorSubject(convertToParamMap(context));
     response = new Subject();
     start = vi.fn(() => response.asObservable());
     get = vi.fn(() => of(encounter));
@@ -31,7 +33,7 @@ describe('Atención: continuidad y protección del paciente', () => {
     getAppointment = vi.fn(() => of({ id: 42, patientId: 8 } as Appointment));
     listAppointments = vi.fn(() => of([] as Appointment[]));
     TestBed.configureTestingModule({ providers: [
-      { provide: ActivatedRoute, useValue: { get snapshot() { return { queryParamMap: convertToParamMap(context) }; } } },
+      { provide: ActivatedRoute, useValue: { get queryParamMap() { queryParams.next(convertToParamMap(context)); return queryParams.asObservable(); } } },
       { provide: AuthService, useValue: { hasPermission: () => true } },
       { provide: ClinicalApiService, useValue: { get, start, update, finalize, search: () => of([]) } },
       { provide: AppointmentApiService, useValue: { get: getAppointment, list: listAppointments } },
@@ -147,4 +149,170 @@ describe('Atención: continuidad y protección del paciente', () => {
     expect(finalize).toHaveBeenCalledWith(3, 2);
     expect(page.current()?.status).toBe('FINALIZADA');
   });
+  it('abre otra atención cuando cambia la URL sin recrear la pantalla', () => {
+    context = { encounterId: '3' };
+    page.ngOnInit();
+    get.mockReturnValue(of({ ...encounter, id: 4, patientId: 9 }));
+    queryParams.next(convertToParamMap({ encounterId: '4' }));
+    expect(get).toHaveBeenLastCalledWith(4);
+    expect(page.current()?.id).toBe(4);
+  });
+  it('ignora una atención anterior que responde después de la nueva URL', () => {
+    const oldResponse = new Subject<ClinicalEncounter>();
+    context = { encounterId: '3' };
+    get.mockReturnValueOnce(oldResponse.asObservable());
+    page.ngOnInit();
+    get.mockReturnValue(of({ ...encounter, id: 4, patientId: 9 }));
+    queryParams.next(convertToParamMap({ encounterId: '4' }));
+    oldResponse.next(encounter);
+    expect(page.current()?.id).toBe(4);
+  });
+  it('una respuesta del enlace no reemplaza al paciente elegido manualmente', () => {
+    const oldResponse = new Subject<ClinicalEncounter>();
+    context = { encounterId: '3' };
+    get.mockReturnValueOnce(oldResponse.asObservable());
+    page.ngOnInit();
+    page.open({ ...encounter, id: 4, patientId: 9 });
+    oldResponse.next(encounter);
+    expect(page.current()?.id).toBe(4);
+  });
+  it('no reabre una atención cerrada cuando llega tarde la respuesta del enlace', () => {
+    const oldResponse = new Subject<ClinicalEncounter>();
+    context = { encounterId: '3' };
+    get.mockReturnValueOnce(oldResponse.asObservable());
+    page.ngOnInit();
+    page.close();
+    oldResponse.next(encounter);
+    expect(page.current()).toBeNull();
+  });
+  it('conserva el borrador si se cancela el cambio de atención desde la URL', () => {
+    context = { encounterId: '3' };
+    page.ngOnInit();
+    page.form.controls.diagnosis.setValue('Pendiente');
+    page.form.markAsDirty();
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    get.mockReturnValue(of({ ...encounter, id: 4 }));
+    queryParams.next(convertToParamMap({ encounterId: '4' }));
+    expect(page.current()?.id).toBe(3);
+    expect(page.form.controls.diagnosis.value).toBe('Pendiente');
+  });
+  it('rechaza identificadores de cita fraccionarios', () => {
+    context = { appointmentId: '42.5' };
+    page.ngOnInit();
+    expect(getAppointment).not.toHaveBeenCalled();
+    expect(start).not.toHaveBeenCalled();
+  });
+  it('ignora errores de una carga de jornada reemplazada', () => {
+    const oldResponse = new Subject<Appointment[]>();
+    listAppointments.mockReturnValueOnce(oldResponse.asObservable());
+    page.loadWorkday();
+    page.loadWorkday();
+    oldResponse.error(new Error('Error tardío'));
+    expect(page.workdayWarning()).toBe('');
+    expect(page.loading()).toBe(false);
+  });
+
+  it('presenta siete pasos conservando signos vitales dentro de evaluación', () => {
+    expect(page.steps.map((step) => step.tab)).toEqual([
+      'anamnesis', 'risks', 'exam', 'assessment', 'consent', 'procedure', 'closure',
+    ]);
+    page.setTab('vitals');
+    expect(page.activeTab()).toBe('exam');
+    expect(page.tabNumber()).toBe(3);
+  });
+  it('separa consentimiento, procedimiento y cierre en la navegación', () => {
+    page.setTab('assessment');
+    page.moveTab(1);
+    expect(page.tab()).toBe('consent');
+    page.moveTab(1);
+    expect(page.tab()).toBe('procedure');
+    page.moveTab(1);
+    expect(page.tab()).toBe('closure');
+  });
+  it('incorpora la revisión al relato sin reemplazar lo existente y la envía al backend', () => {
+    page.open(encounter);
+    page.form.controls.chronologicalStory.setValue('Relato previo');
+    page.noteDrafts.risks.patchValue({ review: 'Medicamentos confirmados', assessment: 'Interconsulta solicitada' });
+    page.incorporateNote('risks');
+    expect(page.form.controls.chronologicalStory.value).toContain('Relato previo');
+    expect(page.form.controls.chronologicalStory.value).toContain('Medicamentos confirmados');
+    expect(page.hasUnsavedChanges()).toBe(true);
+    expect(page.noteDrafts.risks.controls.review.value).toBe('');
+    page.save();
+    expect(update).toHaveBeenCalledWith(3, expect.objectContaining({ chronologicalStory: expect.stringContaining('Interconsulta solicitada') }));
+  });
+  it('documentar rechazo no marca automáticamente conformidad ni cambia el plan anterior', () => {
+    page.open(encounter);
+    page.form.controls.workPlan.setValue('Plan anterior');
+    page.form.controls.patientConsent.setValue(false);
+    page.noteDrafts.consent.patchValue({ procedure: 'Tratamiento explicado', decision: 'Paciente decide posponer' });
+    page.incorporateNote('consent');
+    expect(page.form.controls.workPlan.value).toContain('Plan anterior');
+    expect(page.form.controls.workPlan.value).toContain('Paciente decide posponer');
+    expect(page.form.controls.patientConsent.value).toBe(false);
+  });
+  it('incorpora el registro quirúrgico a la evolución, sin confundirlo con el plan', () => {
+    page.open(encounter);
+    page.form.controls.evolution.setValue('Evolución previa');
+    page.form.controls.workPlan.setValue('Plan propuesto');
+    page.noteDrafts.procedure.patchValue({ anesthesia: 'Anestesia documentada', technique: 'Procedimiento de prueba', incidents: 'Incidencia registrada' });
+    page.incorporateNote('procedure');
+    expect(page.form.controls.evolution.value).toContain('Evolución previa');
+    expect(page.form.controls.evolution.value).toContain('Registro de procedimiento quirúrgico');
+    expect(page.form.controls.evolution.value).toContain('Incidencia registrada');
+    expect(page.form.controls.workPlan.value).toBe('Plan propuesto');
+  });
+  it('conserva el texto preparado si el registro completo excede el límite', () => {
+    page.open(encounter);
+    page.form.controls.evolution.setValue('x'.repeat(3990));
+    page.noteDrafts.procedure.controls.technique.setValue('Texto pendiente');
+    page.incorporateNote('procedure');
+    expect(page.form.controls.evolution.value).toBe('x'.repeat(3990));
+    expect(page.noteDrafts.procedure.controls.technique.value).toBe('Texto pendiente');
+    expect(page.error()).toContain('4000');
+  });
+  it('protege notas preparadas al cambiar de paciente y al guardar', () => {
+    page.open(encounter);
+    page.noteDrafts.consent.controls.decision.setValue('Texto pendiente');
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    page.open({ ...encounter, id: 4 });
+    expect(page.current()?.id).toBe(3);
+    page.setSection('plan');
+    expect(update).not.toHaveBeenCalled();
+    expect(page.section()).toBe('history');
+    expect(page.tab()).toBe('consent');
+    expect(page.noteDrafts.consent.controls.decision.value).toBe('Texto pendiente');
+  });
+  it('respeta la cancelación del descarte de una nota preparada', () => {
+    page.open(encounter);
+    page.noteDrafts.risks.controls.review.setValue('Revisión pendiente');
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    page.discardNote('risks');
+    expect(page.noteDrafts.risks.controls.review.value).toBe('Revisión pendiente');
+  });
+  it('no permite registrar revisión si no se recuperó la ficha', () => {
+    page.open(encounter);
+    page.patient.set(null);
+    page.noteDrafts.risks.controls.review.setValue('Revisión');
+    page.incorporateNote('risks');
+    expect(page.form.controls.chronologicalStory.value).toBe('');
+    expect(page.noteDrafts.risks.controls.review.value).toBe('Revisión');
+  });
+  it('respeta el modo de solo lectura al preparar notas', () => {
+    page.open({ ...encounter, status: 'FINALIZADA' });
+    page.noteDrafts.procedure.controls.technique.setValue('Texto');
+    page.incorporateNote('procedure');
+    expect(page.form.controls.evolution.value).toBe('');
+  });
+
+  it('la conversación no sustituye un plan propuesto que todavía está vacío', () => {
+    page.open(encounter);
+    page.noteDrafts.consent.controls.decision.setValue('Decisión pendiente');
+    page.incorporateNote('consent');
+    expect(page.form.controls.workPlan.value).toBe('');
+    expect(page.noteDrafts.consent.controls.decision.value).toBe('Decisión pendiente');
+    expect(page.tab()).toBe('assessment');
+    expect(page.error()).toContain('plan propuesto');
+  });
+
 });

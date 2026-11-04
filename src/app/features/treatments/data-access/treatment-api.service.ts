@@ -131,13 +131,13 @@ export class TreatmentApiService {
       )
       .pipe(
         switchMap((id) =>
-          this.api.rpc<TreatmentPlan>(
+          this.api.refreshAfterMutation(() => this.api.rpc<TreatmentPlan>(
             'obtener_plan',
             { plan_id: Number(id) },
             {
               errorMessage: 'No se pudo recuperar el plan.',
             },
-          ),
+          )),
         ),
       );
   }

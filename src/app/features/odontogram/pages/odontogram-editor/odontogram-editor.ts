@@ -32,7 +32,7 @@ import {
   LucideStethoscope,
   LucideTrash2,
 } from '@lucide/angular';
-import { Observable, timeout } from 'rxjs';
+import { distinctUntilChanged, map, Observable, timeout } from 'rxjs';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { protectBeforeUnload } from '../../../../core/navigation/pending-changes.guard';
 import { SupabaseErrorService } from '../../../../core/supabase/supabase-error.service';
@@ -85,6 +85,7 @@ import {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class OdontogramEditor implements OnInit {
+  @ViewChild('chartMap') private chartMap?: ElementRef<HTMLElement>;
   @ViewChild('markingToolbar') private markingToolbar?: ElementRef<HTMLElement>;
   private readonly fb = inject(FormBuilder).nonNullable;
   private readonly api = inject(OdontogramApiService);
@@ -209,16 +210,49 @@ export class OdontogramEditor implements OnInit {
     observation: ['', Validators.maxLength(500)],
   });
   readonly observation = this.fb.control('', Validators.maxLength(4000));
+  private activeEncounterId: number | null = null;
+  private loadRequestId = 0;
   ngOnInit(): void {
+    this.destroyRef.onDestroy(() => this.loadRequestId++);
+    const embeddedId = this.embeddedEncounterId();
+    if (embeddedId !== null) {
+      this.openContext(embeddedId);
+      return;
+    }
+    this.route.paramMap
+      .pipe(
+        map((params) => Number(params.get('encounterId'))),
+        distinctUntilChanged(),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((id) => this.openContext(id));
+  }
+  private openContext(id: number): void {
+    this.loadRequestId++;
+    this.activeEncounterId = Number.isSafeInteger(id) && id > 0 ? id : null;
+    this.encounter.set(null);
+    this.items.set([]);
+    this.current.set(null);
+    this.dentition.set('PERMANENTE');
+    this.selectedTooth.set('11');
+    this.quickMark.set(false);
+    this.showAllConditions.set(false);
+    this.focusedQuadrant.set(typeof window !== 'undefined' && window.matchMedia?.('(max-width: 700px)').matches ? 1 : 0);
+    this.form.reset();
+    this.observation.reset();
+    this.clear();
+    if (this.activeEncounterId === null) {
+      this.loading.set(false);
+      this.loadFailed.set(true);
+      this.error.set('El identificador de la atención no es válido.');
+      return;
+    }
     this.retry();
   }
   retry(): void {
-    const id =
-      this.embeddedEncounterId() ?? Number(this.route.snapshot.paramMap.get('encounterId'));
-    if (!id) {
-      void this.router.navigate(['/sistema/atencion']);
-      return;
-    }
+    const id = this.activeEncounterId;
+    if (id === null || this.saving()) return;
+    const requestId = ++this.loadRequestId;
     this.loading.set(true);
     this.loadFailed.set(false);
     this.error.set('');
@@ -227,10 +261,12 @@ export class OdontogramEditor implements OnInit {
       .pipe(timeout({ first: READ_REQUEST_TIMEOUT_MS }), takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (e) => {
+          if (requestId !== this.loadRequestId) return;
           this.encounter.set(e);
-          this.load(id);
+          this.load(id, requestId);
         },
         error: (error: unknown) => {
+          if (requestId !== this.loadRequestId) return;
           this.loading.set(false);
           this.loadFailed.set(true);
           this.error.set(this.errors.toUserMessage(error, 'No se encontró la atención clínica.'));
@@ -252,7 +288,7 @@ export class OdontogramEditor implements OnInit {
     this.clear();
     this.dentition.set(type);
     this.selectedTooth.set(type === 'PERMANENTE' ? '11' : '51');
-    this.focusedQuadrant.set(0);
+    this.focusedQuadrant.set(typeof window !== 'undefined' && window.matchMedia?.('(max-width: 700px)').matches ? 1 : 0);
     this.form.controls.surface.setValue('GENERAL');
     const existing = this.items().find((i) => i.dentitionType === type);
     if (existing) {
@@ -339,6 +375,9 @@ export class OdontogramEditor implements OnInit {
   showDetail(panel: HTMLElement): void {
     panel.scrollIntoView({ block: 'start' });
     panel.focus({ preventScroll: true });
+  }
+  showChartMap(): void {
+    if (this.chartMap) this.showDetail(this.chartMap.nativeElement);
   }
   showMarkingToolbar(): void {
     if (this.markingToolbar) this.showDetail(this.markingToolbar.nativeElement);
@@ -535,12 +574,13 @@ export class OdontogramEditor implements OnInit {
   label(value: string): string {
     return value.replaceAll('_', ' ').toLowerCase();
   }
-  private load(id: number): void {
+  private load(id: number, requestId: number): void {
     this.api
       .list(id)
       .pipe(timeout({ first: READ_REQUEST_TIMEOUT_MS }), takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (items) => {
+          if (requestId !== this.loadRequestId) return;
           this.items.set(items);
           this.loadFailed.set(false);
           const current = items.find((i) => i.dentitionType === this.dentition());
@@ -549,6 +589,7 @@ export class OdontogramEditor implements OnInit {
           this.loading.set(false);
         },
         error: (error: unknown) => {
+          if (requestId !== this.loadRequestId) return;
           this.loading.set(false);
           this.loadFailed.set(true);
           this.error.set(this.errors.toUserMessage(error, 'No se pudo cargar el odontograma.'));

@@ -3,6 +3,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  HostListener,
   OnInit,
   inject,
   signal,
@@ -10,6 +11,7 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
+import { canLeaveEditor, protectBeforeUnload } from '../../../../core/navigation/pending-changes.guard';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { SupabaseErrorService } from '../../../../core/supabase/supabase-error.service';
 import {
@@ -101,7 +103,7 @@ export class AdminCenter implements OnInit {
     {
       code: 'ODONTOLOGO',
       name: 'Odontólogo',
-      description: 'Pacientes, agenda, clínica, tratamientos, seguimientos y DentalIA.',
+      description: 'Pacientes, agenda, clínica, tratamientos y seguimientos.',
       roles: ['ODONTOLOGO'],
     },
     {
@@ -173,8 +175,14 @@ export class AdminCenter implements OnInit {
           if (requestId !== this.loadRequestId) return;
           this.users.set(r.users);
           this.roles.set(r.roles);
+          const previous = new Map(this.settings().map((setting) => [setting.key, setting.value]));
+          const drafts = this.settingDrafts();
           this.settings.set(r.settings);
-          this.settingDrafts.set(Object.fromEntries(r.settings.map((s) => [s.key, s.value])));
+          this.settingDrafts.set(Object.fromEntries(r.settings.map((setting) => [
+            setting.key,
+            previous.has(setting.key) && drafts[setting.key] !== undefined && drafts[setting.key] !== previous.get(setting.key)
+              ? drafts[setting.key] : setting.value,
+          ])));
           this.audits.set(r.audits.content);
           this.summary.set(r.summary);
           this.loading.set(false);
@@ -189,7 +197,7 @@ export class AdminCenter implements OnInit {
       });
   }
   openCreateUser(): void {
-    if (this.saving()) return;
+    if (this.saving() || (this.createOpen() && !canLeaveEditor({ hasUnsavedChanges: () => this.userForm.dirty, isSavingChanges: () => this.saving() }))) return;
     this.userForm.reset({
       fullName: '',
       username: '',
@@ -201,6 +209,19 @@ export class AdminCenter implements OnInit {
     this.success.set('');
     this.createOpen.set(true);
   }
+  closeCreateUser(): void {
+    if (!canLeaveEditor({ hasUnsavedChanges: () => this.userForm.dirty, isSavingChanges: () => this.saving() })) return;
+    this.createOpen.set(false);
+    this.userForm.reset();
+  }
+  hasUnsavedChanges(): boolean {
+    return (this.createOpen() && this.userForm.dirty) || this.passwordForm.dirty ||
+      this.settings().some((setting) => this.settingDrafts()[setting.key] !== undefined && this.settingDrafts()[setting.key] !== setting.value);
+  }
+  isSavingChanges(): boolean { return this.saving(); }
+  @HostListener('window:beforeunload', ['$event'])
+  beforeUnload(event: Event): void { protectBeforeUnload(event, this); }
+
   createUser(): void {
     if (this.saving()) return;
     if (this.userForm.invalid) {

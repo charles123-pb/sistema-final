@@ -44,7 +44,7 @@ describe('Vista imprimible de historia clínica', () => {
         provideRouter([]),
         {
           provide: ActivatedRoute,
-          useValue: { snapshot: { paramMap: convertToParamMap({ id: '8' }) } },
+          useValue: { paramMap: of(convertToParamMap({ id: '8' })) },
         },
         { provide: PatientClinicalReportService, useValue: { load } },
         { provide: PatientApiService, useValue: { downloadFile: vi.fn() } },
@@ -86,7 +86,7 @@ describe('Vista imprimible de historia clínica', () => {
   });
   it('muestra un error y deja de cargar si el identificador no es válido', () => {
     TestBed.overrideProvider(ActivatedRoute, {
-      useValue: { snapshot: { paramMap: convertToParamMap({ id: 'no-valido' }) } },
+      useValue: { paramMap: of(convertToParamMap({ id: 'no-valido' })) },
     });
     const fixture = TestBed.createComponent(PatientClinicalReportPage);
     fixture.detectChanges();

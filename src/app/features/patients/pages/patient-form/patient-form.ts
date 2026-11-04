@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { timeout } from 'rxjs';
+import { distinctUntilChanged, map, timeout } from 'rxjs';
 import { READ_REQUEST_TIMEOUT_MS } from '../../../../core/supabase/request-timeout';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -8,10 +8,13 @@ import { LucideAlertTriangle, LucideArrowLeft, LucideCheck, LucideChevronRight, 
 import { SupabaseErrorService } from '../../../../core/supabase/supabase-error.service';
 import { ModalDirective } from '../../../../shared/ui/modal/modal.directive';
 import { PatientApiService } from '../../data-access/patient-api.service';
+import { dateNotInFuture } from '../../../../shared/validation/date.validators';
+import { protectBeforeUnload } from '../../../../core/navigation/pending-changes.guard';
 import { DocumentType, DuplicateCandidate, PatientDetail, PatientPayload, PatientSex } from '../../models/patient.models';
 
 @Component({
   selector: 'app-patient-form',
+  host: { '(window:beforeunload)': 'beforeUnload($event)' },
   imports: [ModalDirective, ReactiveFormsModule, RouterLink, LucideAlertTriangle, LucideArrowLeft, LucideCheck,
     LucideChevronRight, LucideSave, LucideShieldCheck, LucideUserRound],
   templateUrl: './patient-form.html',
@@ -25,6 +28,7 @@ export class PatientForm implements OnInit {
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private readonly errors = inject(SupabaseErrorService);
+  private loadRequestId = 0;
   readonly patientId = signal<number | null>(null);
   readonly existing = signal<PatientDetail | null>(null);
   readonly loading = signal(false);
@@ -38,7 +42,7 @@ export class PatientForm implements OnInit {
     documentType: this.fb.control<DocumentType>('DNI'), documentNumber: ['', [Validators.maxLength(20)]],
     firstNames: ['', [Validators.required, Validators.maxLength(100)]],
     paternalSurname: ['', [Validators.required, Validators.maxLength(80)]], maternalSurname: ['', Validators.maxLength(80)],
-    birthDate: ['', Validators.required], sex: this.fb.control<PatientSex>('FEMENINO'), birthPlace: ['', Validators.maxLength(150)],
+    birthDate: ['', [Validators.required, dateNotInFuture]], sex: this.fb.control<PatientSex>('FEMENINO'), birthPlace: ['', Validators.maxLength(150)],
     occupation: ['', Validators.maxLength(120)], maritalStatus: [''], educationLevel: [''], religion: [''], ethnicSelfIdentification: [''],
     mobile: ['', Validators.pattern(/^[0-9+ ()-]{0,20}$/)], whatsappConsent: [false],
     phone: ['', Validators.pattern(/^[0-9+ ()-]{0,20}$/)],
@@ -48,9 +52,27 @@ export class PatientForm implements OnInit {
   });
 
   ngOnInit(): void {
-    const id = Number(this.route.snapshot.paramMap.get('id'));
-    if (Number.isFinite(id) && id > 0) { this.patientId.set(id); this.load(id); }
+    this.route.paramMap.pipe(
+      map((params) => Number(params.get('id'))),
+      distinctUntilChanged(),
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe((id) => {
+      this.loadRequestId++;
+      this.existing.set(null);
+      this.patientId.set(null);
+      this.loadingPatient.set(false);
+      this.duplicateReviewOpen.set(false);
+      this.form.reset();
+      if (Number.isSafeInteger(id) && id > 0) {
+        this.patientId.set(id);
+        this.load(id);
+      }
+    });
   }
+
+  hasUnsavedChanges(): boolean { return this.form.dirty; }
+  isSavingChanges(): boolean { return this.loading(); }
+  beforeUnload(event: Event): void { protectBeforeUnload(event, this); }
 
   isMinor(): boolean {
     const date = this.form.controls.birthDate.value;
@@ -106,7 +128,7 @@ export class PatientForm implements OnInit {
     this.loading.set(true); this.error.set('');
     const request = id ? this.api.update(id, { ...payload, version: this.existing()!.version }) : this.api.create(payload);
     request.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: (patient) => { this.loading.set(false); void this.router.navigate(['/sistema/pacientes', patient.id]); },
+      next: (patient) => { this.form.markAsPristine(); this.loading.set(false); void this.router.navigate(['/sistema/pacientes', patient.id]); },
       error: (error: unknown) => {
         this.loading.set(false);
         this.error.set(this.errors.toUserMessage(error, 'No se pudo guardar la ficha.'));
@@ -133,9 +155,11 @@ export class PatientForm implements OnInit {
   }
 
   private load(id: number): void {
+    const requestId = ++this.loadRequestId;
     this.loadingPatient.set(true);
     this.api.get(id).pipe(timeout({ first: READ_REQUEST_TIMEOUT_MS }), takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (p) => {
+        if (requestId !== this.loadRequestId) return;
         this.existing.set(p); this.loadingPatient.set(false);
         this.form.patchValue({
           documentType: p.documentType, documentNumber: p.documentNumber ?? '', firstNames: p.firstNames,
@@ -149,6 +173,7 @@ export class PatientForm implements OnInit {
         });
       },
       error: (error: unknown) => {
+        if (requestId !== this.loadRequestId) return;
         this.loadingPatient.set(false);
         this.error.set(this.errors.toUserMessage(error, 'No se pudo cargar el paciente.'));
       },

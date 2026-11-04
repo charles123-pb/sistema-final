@@ -124,9 +124,20 @@ describe('ToothSurfaceMap', () => {
       conditionColor('RESTAURACION'),
     );
     expect(button('MESIAL').getAttribute('aria-label')).toBe(
-      'Mesial de la pieza 11: Caries, Indicado',
+      'Mesial de la pieza 11: Caries, Indicado; Otros hallazgos: Restauración, Realizado',
     );
     expect(button('DISTAL').title).toBe('Distal de la pieza 11: Restauración, Realizado');
+  });
+
+  it('exposes overlapping findings without changing the priority color or stored records', () => {
+    const records = [finding(), finding({ id: 2, condition: 'SELLANTE' }), finding({ id: 3, surface: 'GENERAL', condition: 'CORONA' })];
+    fixture.componentRef.setInput('findings', records);
+    fixture.detectChanges();
+    expect(button('MESIAL').querySelector('.multiple-findings')?.textContent).toBe('+2');
+    expect(button('MESIAL').title).toContain('Caries, Indicado');
+    expect(button('MESIAL').title).toContain('Corona, Indicado');
+    expect(button('MESIAL').style.getPropertyValue('--surface-color')).toBe(conditionColor('SELLANTE'));
+    expect(fixture.componentInstance.findings()).toEqual(records);
   });
 
   it('emits selection without changing its input or findings', () => {

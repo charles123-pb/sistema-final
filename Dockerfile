@@ -7,7 +7,7 @@ RUN npm ci --no-audit --no-fund
 COPY . .
 ENV NG_BUILD_MAX_WORKERS=1
 ENV NG_BUILD_PARALLEL_TS=0
-ENV NODE_OPTIONS=--max-old-space-size=1536
+ENV NODE_OPTIONS=--max-old-space-size=3072
 RUN npm run build -- --configuration=production --no-progress
 
 FROM ${NGINX_IMAGE}

@@ -31,7 +31,7 @@ svg {
 }
 .odontogram-page {
   min-height: calc(100dvh - 72px);
-  padding: 28px 24px 80px;
+  padding: 20px 20px 48px;
   background: #f3f6f8;
 }
 .page-header,
@@ -45,7 +45,7 @@ svg {
   display: flex;
   align-items: center;
   gap: 16px;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 .page-header > a {
   display: grid;
@@ -135,15 +135,15 @@ svg {
 .summary-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 10px;
-  margin-bottom: 20px;
+  gap: 8px;
+  margin-bottom: 16px;
 }
 .summary-grid article {
   --metric-color: #557080;
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 14px 16px;
+  padding: 12px 14px;
   border: 1px solid #dfe7ec;
   border-radius: 14px;
   background: #fff;
@@ -176,9 +176,9 @@ svg {
 }
 .editor-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 350px;
+  grid-template-columns: minmax(0, 1fr) 330px;
   align-items: start;
-  gap: 20px;
+  gap: 14px;
 }
 .chart-panel,
 .detail-panel {
@@ -189,14 +189,14 @@ svg {
   box-shadow: 0 4px 22px #163b5010;
 }
 .chart-panel {
-  padding: 22px;
+  padding: 16px;
 }
 .chart-header,
 .marking-toolbar > header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
 }
 .chart-header h2,
 .marking-toolbar h2 {
@@ -246,7 +246,7 @@ svg {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin: 22px 0 16px;
+  margin: 16px 0 12px;
 }
 .quadrant-filter button {
   padding: 8px 12px;
@@ -280,7 +280,7 @@ svg {
 }
 .chart-scroll {
   overflow-x: auto;
-  padding: 16px 10px 10px;
+  padding: 12px 8px 8px;
   border: 1px solid #e0e9ed;
   border-radius: 15px;
   background: linear-gradient(180deg, #f8fbfc, #fff);
@@ -332,9 +332,9 @@ svg {
   display: grid;
   align-content: start;
   justify-items: center;
-  gap: 7px;
+  gap: 4px;
   min-width: 0;
-  padding: 7px 3px 5px;
+  padding: 5px 2px 4px;
   border: 1px solid transparent;
   border-radius: 12px;
   transition:
@@ -393,7 +393,7 @@ svg {
   color: #668090;
   font-size: 0.7rem;
   line-height: 1.6;
-  margin: 12px 0 22px;
+  margin: 8px 0 14px;
 }
 .chart-hint button {
   padding: 0;
@@ -428,7 +428,7 @@ svg {
   line-height: 1.5;
 }
 .marking-toolbar {
-  padding: 18px;
+  padding: 14px;
   border: 1px solid #d2e4e8;
   border-radius: 15px;
   background: #f9fcfc;
@@ -461,8 +461,8 @@ svg {
 .mode-hint {
   color: #607b8b;
   font-size: 0.72rem;
-  line-height: 1.6;
-  margin: 10px 0 14px;
+  line-height: 1.45;
+  margin: 7px 0 10px;
 }
 .mode-hint.direct {
   border-left: 3px solid #cb8c24;
@@ -512,7 +512,7 @@ svg {
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
-  margin-top: 16px;
+  margin-top: 10px;
 }
 .treatment-switch > span {
   margin-right: 4px;
@@ -535,9 +535,9 @@ svg {
   color: #fff;
 }
 .color-guide {
-  margin-top: 18px;
+  margin-top: 12px;
   border-bottom: 1px solid #e5ecef;
-  padding-bottom: 16px;
+  padding-bottom: 12px;
 }
 .color-guide summary {
   cursor: pointer;
@@ -676,7 +676,7 @@ textarea[readonly] {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 18px 18px 10px;
+  padding: 14px 14px 8px;
 }
 .selected-number {
   display: grid;
@@ -714,7 +714,7 @@ textarea[readonly] {
   color: #527587;
 }
 .tooth-description {
-  margin: 0 18px;
+  margin: 0 14px;
   color: #607b8c;
   font-size: 0.7rem;
   line-height: 1.6;
@@ -722,9 +722,9 @@ textarea[readonly] {
 .tooth-zoom {
   display: grid;
   justify-items: center;
-  gap: 12px;
-  margin: 18px;
-  padding: 18px;
+  gap: 8px;
+  margin: 12px;
+  padding: 12px;
   border-radius: 14px;
   background: radial-gradient(ellipse at center, #fff, #eef6f8);
   border: 1px solid #dfebef;
@@ -760,7 +760,7 @@ textarea[readonly] {
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 6px;
-  margin: 0 18px 16px;
+  margin: 0 14px 12px;
   font-size: 0.68rem;
   color: #698392;
 }
@@ -770,13 +770,13 @@ textarea[readonly] {
 }
 .detail-panel form {
   display: grid;
-  gap: 11px;
-  padding: 18px;
+  gap: 8px;
+  padding: 14px;
   border-top: 1px solid #e1eaee;
 }
 .editor-fields {
   display: grid;
-  gap: 11px;
+  gap: 8px;
   min-width: 0;
   padding: 0;
   margin: 0;
@@ -788,8 +788,8 @@ textarea[readonly] {
 }
 .selection-summary {
   display: grid;
-  gap: 8px;
-  padding: 12px;
+  gap: 6px;
+  padding: 10px;
   border: 1px solid #dbe8ec;
   border-radius: 10px;
   background: #f6fafb;
@@ -886,7 +886,7 @@ textarea[readonly] {
 }
 .findings-section {
   border-top: 1px solid #e2ebee;
-  padding: 18px;
+  padding: 14px;
 }
 .findings-section > h3 {
   display: flex;
@@ -1189,24 +1189,191 @@ textarea[readonly] {
     transition: none;
   }
 }
-.odontogram-page.embedded { min-height:0; padding:16px 8px 28px; background:transparent; }
-.odontogram-page.embedded .page-header>a { display:none; }
-.odontogram-page.embedded .editor-layout { grid-template-columns:minmax(0,1fr); }
-.odontogram-page.embedded .detail-panel { position:static; max-height:none; }
-.load-recovery { display:flex; align-items:center; gap:14px; max-width:900px; margin:24px auto; padding:22px; border:1px solid #efcfb8; border-radius:16px; background:#fff9f3; color:#8d502a; }
-.load-recovery > svg { width:24px; height:24px; }
-.load-recovery > div { flex:1; }
-.load-recovery strong { font-size:.88rem; }
-.load-recovery p { margin:5px 0 0; font-size:.73rem; line-height:1.5; }
-.load-recovery button, .retry-load { min-height:40px; padding:0 16px; border:0; border-radius:9px; background:#176f82; color:white; font-size:.74rem; font-weight:800; }
-@media (max-width:700px) { .load-recovery { align-items:flex-start; flex-wrap:wrap; }.load-recovery button { width:100%; } }
-.marking-toolbar { margin-top:20px; background:linear-gradient(145deg,#f6fbfb,#eef7f8); border-color:#bfdee3; }
-.marking-toolbar .condition-palette { margin-top:8px; }
-.more-conditions { margin-top:9px; padding:7px 2px; border:0; color:#126f82; background:transparent; font-size:.72rem; font-weight:800; text-decoration:underline; text-underline-offset:3px; }
-.whole-tooth-hint { margin:10px 0 0; padding:9px 11px; border-radius:8px; color:#315f6a; background:#e2f0f2; font-size:.7rem; font-weight:700; }
-.chart-step { display:flex; flex-wrap:wrap; justify-content:space-between; gap:6px 14px; margin-top:20px; padding:10px 12px; border-radius:9px; color:#175e6e; background:#eaf5f7; }
-.chart-step span { font-size:.64rem; font-weight:900; letter-spacing:.06em; }
-.chart-step strong { font-size:.67rem; font-weight:650; }
-.chart-step + .quadrant-filter { margin-top:14px; }
-.detail-panel .general-note { margin:0 18px 18px; padding:14px; border:1px solid #e0e9ed; border-radius:11px; background:#f9fbfc; }
-@media (max-width:700px) { .marking-toolbar { padding:14px; }.chart-step strong { width:100%; } }
+.odontogram-page.embedded {
+  min-height: 0;
+  padding: 16px 8px 28px;
+  background: transparent;
+}
+.odontogram-page.embedded .page-header > a {
+  display: none;
+}
+.odontogram-page.embedded .editor-layout {
+  grid-template-columns: minmax(0, 1fr);
+}
+.odontogram-page.embedded .detail-panel {
+  position: static;
+  max-height: none;
+}
+.load-recovery {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  max-width: 900px;
+  margin: 24px auto;
+  padding: 22px;
+  border: 1px solid #efcfb8;
+  border-radius: 16px;
+  background: #fff9f3;
+  color: #8d502a;
+}
+.load-recovery > svg {
+  width: 24px;
+  height: 24px;
+}
+.load-recovery > div {
+  flex: 1;
+}
+.load-recovery strong {
+  font-size: 0.88rem;
+}
+.load-recovery p {
+  margin: 5px 0 0;
+  font-size: 0.73rem;
+  line-height: 1.5;
+}
+.load-recovery button,
+.retry-load {
+  min-height: 40px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 9px;
+  background: #176f82;
+  color: white;
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+.marking-toolbar {
+  margin-top: 16px;
+  background: linear-gradient(145deg, #f6fbfb, #eef7f8);
+  border-color: #bfdee3;
+}
+.marking-toolbar .condition-palette {
+  margin-top: 8px;
+}
+.more-conditions {
+  margin-top: 8px;
+  padding: 7px 2px;
+  border: 0;
+  color: #126f82;
+  background: transparent;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.whole-tooth-hint {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  color: #315f6a;
+  background: #e2f0f2;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+.chart-step {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 6px 14px;
+  margin-top: 16px;
+  padding: 9px 11px;
+  border-radius: 9px;
+  color: #175e6e;
+  background: #eaf5f7;
+}
+.chart-step span {
+  font-size: 0.64rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+}
+.chart-step strong {
+  font-size: 0.67rem;
+  font-weight: 650;
+}
+.chart-step + .quadrant-filter {
+  margin-top: 12px;
+}
+.detail-panel .general-note {
+  margin: 0 14px 14px;
+  padding: 12px;
+  border: 1px solid #e0e9ed;
+  border-radius: 11px;
+  background: #f9fbfc;
+}
+@media (max-width: 700px) {
+  .load-recovery {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .load-recovery button {
+    width: 100%;
+  }
+  .chart-step strong {
+    width: 100%;
+  }
+}
+
+/* Keep the complete FDI arch readable while limiting unnecessary horizontal scrolling. */
+.chart-canvas {
+  min-width: 960px;
+}
+.chart-canvas.primary {
+  min-width: 640px;
+}
+.chart-scroll.focused .chart-canvas {
+  min-width: 600px;
+}
+.tooth-number,
+.quadrant-filter button,
+.tooth-navigation button,
+.whole-tooth {
+  min-width: 44px;
+  min-height: 44px;
+}
+.tooth-zoom app-tooth-surface-map,
+.detail-panel .tooth-zoom app-tooth-surface-map {
+  width: 180px;
+}
+.return-to-map {
+  display: none;
+  min-height: 44px;
+  margin: 0 12px 10px;
+  padding: 8px 14px;
+  border: 1px solid #bdd0d8;
+  border-radius: 10px;
+  background: #f8fbfc;
+  color: #172b43;
+  cursor: pointer;
+}
+.mobile-detail-access {
+  display: none;
+}
+@media (max-width: 1150px) {
+  .return-to-map {
+    display: inline-flex;
+    align-items: center;
+  }
+}
+@media (max-width: 700px) {
+  .chart-scroll.focused .tooth-number {
+    min-width: 44px;
+  }
+  .mobile-detail-access {
+    position: sticky;
+    bottom: 88px;
+    z-index: 4;
+    display: block;
+    margin-top: 12px;
+  }
+  .mobile-detail-access button {
+    width: 100%;
+    min-height: 48px;
+    padding: 10px;
+    border: 1px solid #176779;
+    border-radius: 12px;
+    background: #176779;
+    color: white;
+    font: inherit;
+    box-shadow: 0 3px 12px #172b4333;
+  }
+}

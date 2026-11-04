@@ -1,4 +1,10 @@
+import {
+  InboxTools,
+  ConversationFilter,
+  QuickReply,
+} from '../../components/inbox-tools/inbox-tools';
 import { DatePipe } from '@angular/common';
+import { FollowupQueue } from './followup-queue';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -51,6 +57,8 @@ type View = 'chat' | 'followups' | 'automations';
 @Component({
   selector: 'app-follow-up-center',
   imports: [
+    FollowupQueue,
+    InboxTools,
     ModalDirective,
     RouterLink,
     ReactiveFormsModule,
@@ -85,6 +93,63 @@ export class FollowUpCenter implements OnInit {
   private readonly patientApi = inject(PatientApiService);
   private readonly auth = inject(AuthService);
   readonly conversations = signal<Conversation[]>([]);
+  readonly conversationFilter = signal<ConversationFilter>('all');
+  readonly visibleConversations = computed(() =>
+    this.conversations().filter((item) => {
+      const filter = this.conversationFilter();
+      return (
+        filter === 'all' ||
+        (filter === 'unread' && item.unreadCount > 0) ||
+        (filter === 'pending' && this.needsReply(item))
+      );
+    }),
+  );
+  needsReply(item: Conversation): boolean {
+    return (
+      item.status !== 'CERRADA' &&
+      (item.status === 'DERIVADA' || item.lastMessageDirection === 'ENTRANTE')
+    );
+  }
+  prepareReply(kind: QuickReply) {
+    const conversation = this.selected();
+    if (!conversation || !this.canWrite() || this.saving()) return;
+    const greeting = `Hola ${conversation.patientName},`;
+    let text = '';
+    switch (kind) {
+      case 'greeting':
+        text = `${greeting} gracias por escribirnos. ¿En qué podemos ayudarte?`;
+        break;
+      case 'appointment': {
+        if (!conversation.appointment) return;
+        const date = new Intl.DateTimeFormat('es-PE', {
+          timeZone: 'America/Lima',
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        }).format(new Date(conversation.appointment.start));
+        text = `${greeting} tu cita está programada para el ${date}. ¿Nos confirmas tu asistencia?`;
+        break;
+      }
+      case 'reschedule':
+        text = `${greeting} ¿qué día y horario te convienen para reprogramar tu cita? Revisaremos la disponibilidad antes de confirmar el cambio.`;
+        break;
+      case 'followup':
+        text = `${greeting} queremos saber cómo te encuentras después de tu atención. ¿Tienes alguna molestia o duda que debamos revisar?`;
+        break;
+    }
+    const current = this.messageForm.controls.content.value.trim();
+    const draft = current ? `${current}\n\n${text}` : text;
+    if (draft.length > 4000) {
+      this.error.set(
+        'La respuesta supera el límite de 4000 caracteres. Revisa el borrador antes de añadirla.',
+      );
+      return;
+    }
+    this.messageForm.controls.content.setValue(draft);
+    this.messageForm.controls.content.markAsDirty();
+  }
   readonly hasMoreConversations = signal(false);
   readonly loadingMoreConversations = signal(false);
   readonly searchingConversations = signal(false);
@@ -117,7 +182,7 @@ export class FollowUpCenter implements OnInit {
     {
       key: 'whatsapp.automatizacion.activa',
       name: 'Control general',
-      description: 'Enciende o pausa el asistente y los flujos que hayas seleccionado.',
+      description: 'Enciende o pausa los mensajes automáticos y los flujos que hayas seleccionado.',
     },
     {
       key: 'whatsapp.automatizacion.citas',
@@ -141,10 +206,42 @@ export class FollowUpCenter implements OnInit {
         .length,
   );
   readonly alerts = computed(() => this.followups().filter((item) => item.status === 'ALERTA'));
+  readonly followupFilter = signal<'all' | 'review' | 'scheduled' | 'closed'>('all');
+  readonly pendingReviewCount = computed(
+    () =>
+      this.followups().filter((item) => item.status === 'ALERTA' || item.status === 'RESPONDIDO')
+        .length,
+  );
+  readonly visibleFollowups = computed(() => {
+    const filter = this.followupFilter();
+    const priority: Record<FollowUp['status'], number> = {
+      ALERTA: 0,
+      RESPONDIDO: 1,
+      PROGRAMADO: 2,
+      ENVIADO: 3,
+      REVISADO: 4,
+      CERRADO: 5,
+    };
+    return this.followups()
+      .filter(
+        (item) =>
+          filter === 'all' ||
+          (filter === 'review' && (item.status === 'ALERTA' || item.status === 'RESPONDIDO')) ||
+          (filter === 'scheduled' && (item.status === 'PROGRAMADO' || item.status === 'ENVIADO')) ||
+          (filter === 'closed' && (item.status === 'REVISADO' || item.status === 'CERRADO')),
+      )
+      .sort(
+        (a, b) =>
+          priority[a.status] - priority[b.status] ||
+          a.scheduledFor.localeCompare(b.scheduledFor) ||
+          a.id - b.id,
+      );
+  });
   private conversationSearchTimer?: ReturnType<typeof setTimeout>;
   private patientSearchTimer?: ReturnType<typeof setTimeout>;
   private qrRefreshTimer?: ReturnType<typeof setTimeout>;
   private refreshQueued = false;
+  private destroyed = false;
   private conversationQueryVersion = 0;
   private messageContextVersion = 0;
   private latestMessageRequestVersion = 0;
@@ -154,10 +251,15 @@ export class FollowUpCenter implements OnInit {
   readonly messageForm = this.fb.group({
     content: ['', [Validators.required, Validators.maxLength(4000)]],
   });
-  readonly composeForm = this.fb.group({ search: [''], content: ['', Validators.required] });
+  readonly composeForm = this.fb.group({
+    search: [''],
+    content: ['', [Validators.required, Validators.maxLength(4000)]],
+  });
 
   ngOnInit() {
     this.destroyRef.onDestroy(() => {
+      this.destroyed = true;
+      this.refreshQueued = false;
       clearTimeout(this.conversationSearchTimer);
       clearTimeout(this.patientSearchTimer);
       clearTimeout(this.qrRefreshTimer);
@@ -302,6 +404,7 @@ export class FollowUpCenter implements OnInit {
       });
   }
   refreshQuietly() {
+    if (this.destroyed) return;
     if (this.refreshing()) {
       this.refreshQueued = true;
       return;
@@ -361,7 +464,7 @@ export class FollowUpCenter implements OnInit {
     this.conversationSearchTimer = setTimeout(() => {
       this.api
         .conversationsPage(query)
-        .pipe(takeUntilDestroyed(this.destroyRef))
+        .pipe(timeout({ first: READ_REQUEST_TIMEOUT_MS }), takeUntilDestroyed(this.destroyRef))
         .subscribe({
           next: (page) => {
             if (queryVersion !== this.conversationQueryVersion) return;
@@ -390,7 +493,7 @@ export class FollowUpCenter implements OnInit {
         at: last.lastMessageAt,
         id: last.id,
       })
-      .pipe(takeUntilDestroyed(this.destroyRef))
+      .pipe(timeout({ first: READ_REQUEST_TIMEOUT_MS }), takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (page) => {
           if (queryVersion !== this.conversationQueryVersion) return;
@@ -421,7 +524,7 @@ export class FollowUpCenter implements OnInit {
     const requestVersion = ++this.latestMessageRequestVersion;
     this.api
       .conversationMessagesPage(id)
-      .pipe(takeUntilDestroyed(this.destroyRef))
+      .pipe(timeout({ first: READ_REQUEST_TIMEOUT_MS }), takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (page) => {
           if (
@@ -470,7 +573,7 @@ export class FollowUpCenter implements OnInit {
         at: oldest.createdAt,
         id: oldest.id,
       })
-      .pipe(takeUntilDestroyed(this.destroyRef))
+      .pipe(timeout({ first: READ_REQUEST_TIMEOUT_MS }), takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (page) => {
           if (
@@ -632,7 +735,7 @@ export class FollowUpCenter implements OnInit {
     this.patientSearchTimer = setTimeout(() => {
       this.patientApi
         .search({ q: query.trim(), active: true, page: 0, size: 8 })
-        .pipe(takeUntilDestroyed(this.destroyRef))
+        .pipe(timeout({ first: READ_REQUEST_TIMEOUT_MS }), takeUntilDestroyed(this.destroyRef))
         .subscribe({
           next: (result) => {
             if (searchVersion === this.patientSearchVersion) this.results.set(result.content);
@@ -662,7 +765,10 @@ export class FollowUpCenter implements OnInit {
     if (!this.canWrite() || this.saving()) return;
     const patient = this.selectedPatient();
     const content = this.composeForm.controls.content.value.trim();
-    if (!patient || !content) return;
+    if (!patient || !content || this.composeForm.invalid) {
+      this.composeForm.markAllAsTouched();
+      return;
+    }
     this.composeError.set('');
     this.saving.set(true);
     this.api

@@ -11,7 +11,7 @@
         <label class="wide">Nombres <em>*</em><input formControlName="firstNames" placeholder="Ana María">@if(form.controls.firstNames.touched && form.controls.firstNames.invalid){<small>Ingresa los nombres.</small>}</label>
         <label>Apellido paterno <em>*</em><input formControlName="paternalSurname" placeholder="Torres"></label>
         <label>Apellido materno<input formControlName="maternalSurname" placeholder="Quispe"></label>
-        <label>Fecha de nacimiento <em>*</em><input type="date" formControlName="birthDate"></label>
+        <label>Fecha de nacimiento <em>*</em><input type="date" formControlName="birthDate">@if(form.controls.birthDate.touched && form.controls.birthDate.invalid){<small>Ingresa una fecha válida que no esté en el futuro.</small>}</label>
         <label>Sexo<select formControlName="sex"><option value="FEMENINO">Femenino</option><option value="MASCULINO">Masculino</option><option value="OTRO">Otro</option><option value="NO_ESPECIFICA">No especifica</option></select></label>
         <label>Lugar de nacimiento<input formControlName="birthPlace" placeholder="Ayacucho"></label>
       </div>

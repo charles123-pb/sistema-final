@@ -185,7 +185,7 @@
               <button type="button" (click)="refreshAccount()">Actualizar saldo</button>
             </div>
           }
-          @if (account(); as currentAccount) {
+          @for (currentAccount of account() ? [account()!] : []; track currentAccount.id) {
             <app-payment-agreement
               [account]="currentAccount"
               [paymentBlocked]="accountLoading() || !!accountError()"
@@ -228,7 +228,9 @@
               Completar plan
             </button>
           }
-          <app-budget-agreement [plan]="plan()!" (updated)="refreshSignedPlan()" />
+          @for (currentPlan of [plan()!]; track currentPlan.id) {
+            <app-budget-agreement [plan]="currentPlan" (updated)="refreshSignedPlan()" />
+          }
         </aside>
       </div>
       </fieldset>

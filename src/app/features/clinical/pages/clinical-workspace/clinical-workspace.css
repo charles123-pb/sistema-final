@@ -83,3 +83,11 @@ button, input, textarea { font: inherit; }
 .clinical-context small { color: #68878b; }
 @media (max-width: 760px) { .clinical-context { margin-right: 12px; margin-left: 12px; } }
 .walk-in-title { margin:18px 8px 8px; color:#357082; font-size:.75rem; }
+
+.section-return { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 22px; background: #edf6f8; }
+.section-return p { flex: 1; min-width: 180px; margin: 0; font-size: .78rem; line-height: 1.5; }
+.section-return button, .workflow-actions button, .workflow-actions a { padding: 10px 12px; border: 1px solid #c4dbe3; border-radius: 9px; color: #15647a; background: #fff; font: inherit; font-size: .78rem; text-decoration: none; cursor: pointer; }
+.section-return button:disabled, .workflow-actions button:disabled { opacity: .55; cursor: default; }
+.workflow-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+.review-summary { padding: 14px; border-radius: 10px; background: #f0f7f8; font-size: .8rem; line-height: 1.5; }
+.record-tabs button { flex-shrink: 0; }

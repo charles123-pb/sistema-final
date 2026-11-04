@@ -22,6 +22,7 @@ export const routes: Routes = [
       },
       {
         path: 'agenda',
+        canDeactivate: [pendingChangesGuard],
         canActivate: [permissionGuard],
         data: { title: 'Agenda', permission: 'CITA_LEER' },
         loadComponent: () =>
@@ -86,15 +87,6 @@ export const routes: Routes = [
           ),
       },
       {
-        path: 'copiloto',
-        canActivate: [permissionGuard],
-        data: { title: 'DentalIA', permission: 'IA_LEER' },
-        loadComponent: () =>
-          import('./features/copilot/pages/copilot-workspace/copilot-workspace').then(
-            (m) => m.CopilotWorkspace,
-          ),
-      },
-      {
         path: 'pacientes',
         canActivate: [permissionGuard],
         data: { title: 'Pacientes', permission: 'PACIENTE_LEER' },
@@ -108,6 +100,7 @@ export const routes: Routes = [
           },
           {
             path: 'nuevo',
+            canDeactivate: [pendingChangesGuard],
             canActivate: [permissionGuard],
             data: { permission: 'PACIENTE_ESCRIBIR' },
             loadComponent: () =>
@@ -117,6 +110,7 @@ export const routes: Routes = [
           },
           {
             path: ':id/editar',
+            canDeactivate: [pendingChangesGuard],
             canActivate: [permissionGuard],
             data: { permission: 'PACIENTE_ESCRIBIR' },
             loadComponent: () =>
@@ -135,6 +129,7 @@ export const routes: Routes = [
           },
           {
             path: ':id',
+            canDeactivate: [pendingChangesGuard],
             loadComponent: () =>
               import('./features/patients/pages/patient-detail/patient-detail').then(
                 (m) => m.PatientDetailPage,
@@ -144,6 +139,7 @@ export const routes: Routes = [
       },
       {
         path: 'ajustes',
+        canDeactivate: [pendingChangesGuard],
         canActivate: [permissionGuard],
         data: { title: 'Administración', permission: 'USUARIO_LEER' },
         loadComponent: () =>

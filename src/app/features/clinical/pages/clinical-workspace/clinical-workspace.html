@@ -131,11 +131,17 @@
           </p>
         </div>
         <div class="record-progress">
-          <small>Campos esenciales</small><strong>{{ completion() }}%</strong
+          <small>Campos para cierre</small><strong>{{ completion() }}%</strong
           ><span><i [style.width.%]="completion()"></i></span>
         </div>
       </header>
 
+      @if (!patient()) {
+        <div class="message pending-note" role="status">
+          La ficha del paciente todavía no está disponible. No se han podido verificar alergias,
+          antecedentes ni medicamentos actuales.
+        </div>
+      }
       @if (activeAllergies().length) {
         <div class="allergy-banner">
           <svg lucideShieldAlert></svg>
@@ -244,36 +250,32 @@
           } @else if (section() === 'odontogram') {
             Tienes cambios sin guardar en el odontograma. Guárdalos antes de salir de esta sección.
           } @else {
-            Tienes cambios sin guardar en la historia clínica. Al abrir Odontograma o Plan y pagos se guardará el borrador.
+            Tienes cambios sin guardar en la historia clínica. Incorpora o descarta las notas preparadas; al abrir Odontograma o Plan y pagos se guardará el borrador.
           }
         </div>
       }
       @if (section() === 'odontogram') {
+        <div class="section-return">
+          <p>Evaluación clínica: registra y revisa el odontograma antes de concluir el diagnóstico.</p>
+          <button type="button" [disabled]="isSavingChanges()" (click)="goToHistoryTab('exam')">Volver a evaluación clínica</button>
+        </div>
         <app-odontogram-editor [embeddedEncounterId]="current()!.id" />
       } @else if (section() === 'plan') {
+        <div class="section-return">
+          <p>El presupuesto acompaña al plan clínico. Documenta la explicación y la decisión del paciente antes del procedimiento.</p>
+          <button type="button" [disabled]="isSavingChanges()" (click)="goToHistoryTab('consent')">Continuar con información y consentimiento</button>
+        </div>
         <app-treatment-plan [embeddedEncounterId]="current()!.id" />
       } @else {
         <form [formGroup]="form" (ngSubmit)="save()">
-          <nav class="record-tabs">
-            <button
-              type="button"
-              [class.active]="tab() === 'anamnesis'"
-              (click)="setTab('anamnesis')"
-            >
-              <span>1</span>Anamnesis</button
-            ><button type="button" [class.active]="tab() === 'vitals'" (click)="setTab('vitals')">
-              <span>2</span>Signos vitales</button
-            ><button type="button" [class.active]="tab() === 'exam'" (click)="setTab('exam')">
-              <span>3</span>Examen</button
-            ><button
-              type="button"
-              [class.active]="tab() === 'assessment'"
-              (click)="setTab('assessment')"
-            >
-              <span>4</span>Diagnóstico y plan</button
-            ><button type="button" [class.active]="tab() === 'closure'" (click)="setTab('closure')">
-              <span>5</span>Evolución y cierre
-            </button>
+          <nav class="record-tabs" aria-label="Pasos de la atención">
+            @for (step of steps; track step.tab; let index = $index) {
+              <button type="button" [class.active]="activeTab() === step.tab"
+                [attr.aria-current]="activeTab() === step.tab ? 'step' : null"
+                (click)="setTab(step.tab)">
+                <span>{{ index + 1 }}</span>{{ step.label }}
+              </button>
+            }
           </nav>
 
           <fieldset class="clinical-fields" [disabled]="saving()">
@@ -283,8 +285,8 @@
                   <header>
                     <span><svg lucideHistory></svg></span>
                     <div>
-                      <h3>Anamnesis actual</h3>
-                      <p>Registra las palabras del paciente y la evolución del problema.</p>
+                      <h3>Identificación, motivo y anamnesis</h3>
+                      <p>Confirma la identidad, registra el motivo y valora si requiere atención urgente. Puedes acceder directamente al paso necesario.</p>
                     </div>
                   </header>
                   <label
@@ -316,13 +318,41 @@
                 </section>
               }
 
-              @if (tab() === 'vitals') {
+              @if (tab() === 'risks') {
+                <section class="form-card">
+                  <header><span><svg lucideShieldAlert></svg></span><div>
+                    <h3>Antecedentes y valoración de riesgos</h3>
+                    <p>Confirma con el paciente la información de su ficha antes de examinar o tratar.</p>
+                  </div></header>
+                  @if (patient(); as record) {
+                    <div class="review-summary">
+                      <p><strong>Alergias activas registradas:</strong> {{ activeAllergies().length }}.</p>
+                      <p><strong>Medicamentos actuales registrados:</strong> {{ currentMedications().length }}.</p>
+                      <p>La ausencia de registros requiere confirmación con el paciente.</p>
+                      @for (history of record.histories; track history.id) {
+                        <p><strong>{{ history.type.replaceAll('_', ' ') }}:</strong> {{ history.description }} · {{ history.status }}</p>
+                      }
+                      <a [routerLink]="['/sistema/pacientes', current()!.patientId]">Consultar o actualizar la ficha completa</a>
+                    </div>
+                  }
+                  <label>Relato clínico y revisión registrada
+                    <textarea formControlName="chronologicalStory" rows="7" placeholder="Información clínica confirmada y valoración de riesgos de esta atención"></textarea>
+                  </label>
+                  <app-clinical-note-builder title="Documentar la revisión de antecedentes"
+                    description="Registra la revisión que realizaste y las decisiones clínicas. Al incorporarla, se agrega al relato clínico sin reemplazar lo existente."
+                    [fields]="noteFields.risks" [draftForm]="noteDrafts.risks"
+                    [disabled]="saving() || !canWrite() || current()!.status !== 'BORRADOR' || !patient()"
+                    (incorporate)="incorporateNote('risks')" (discard)="discardNote('risks')" />
+                </section>
+              }
+
+              @if (activeTab() === 'exam') {
                 <section class="form-card">
                   <header>
                     <span class="red"><svg lucideHeartPulse></svg></span>
                     <div>
                       <h3>Signos vitales y antropometría</h3>
-                      <p>Los rangos se validan antes de guardar.</p>
+                      <p>Registra los valores pertinentes según el paciente y el procedimiento. Los rangos se validan antes de guardar.</p>
                     </div>
                   </header>
                   <div class="vital-grid">
@@ -372,13 +402,13 @@
                 </section>
               }
 
-              @if (tab() === 'exam') {
+              @if (activeTab() === 'exam') {
                 <section class="form-card">
                   <header>
                     <span class="blue"><svg lucideStethoscope></svg></span>
                     <div>
                       <h3>Examen clínico</h3>
-                      <p>Hallazgos generales y odontológicos observados por el profesional.</p>
+                      <p>Registra el examen extraoral, intraoral y periodontal. Revisa el odontograma y documenta estudios e interpretación cuando estén indicados.</p>
                     </div>
                   </header>
                   <label
@@ -392,9 +422,13 @@
                     ><textarea
                       formControlName="dentalExam"
                       rows="9"
-                      placeholder="Tejidos blandos, periodonto, oclusión y hallazgos dentales"
+                      placeholder="Tejidos blandos, periodonto, oclusión, hallazgos dentales y estudios interpretados, si corresponden"
                     ></textarea>
                   </label>
+                  <div class="workflow-actions">
+                    <button type="button" [disabled]="isSavingChanges()" (click)="setSection('odontogram')">Abrir odontograma</button>
+                    <a [routerLink]="['/sistema/pacientes', current()!.patientId]">Ver o adjuntar estudios en la ficha</a>
+                  </div>
                 </section>
               }
 
@@ -419,7 +453,7 @@
                     ><textarea
                       formControlName="workPlan"
                       rows="7"
-                      placeholder="Procedimientos y secuencia propuesta"
+                      placeholder="Procedimientos propuestos, alternativas, prioridades y secuencia de tratamiento"
                     ></textarea></label
                   ><label
                     >Pronóstico<textarea
@@ -428,6 +462,55 @@
                       placeholder="Favorable, reservado, desfavorable y observaciones"
                     ></textarea>
                   </label>
+                  @if (canTreatment) {
+                    <div class="workflow-actions">
+                      <button type="button" [disabled]="isSavingChanges()" (click)="setSection('plan')">Abrir presupuesto y pagos</button>
+                    </div>
+                  }
+                </section>
+              }
+
+              @if (tab() === 'consent') {
+                <section class="form-card">
+                  <header><span><svg lucideClipboardCheck></svg></span><div>
+                    <h3>Información y consentimiento antes del procedimiento</h3>
+                    <p>Explica el tratamiento, alternativas, riesgos y beneficios. Documenta las preguntas y la aceptación, rechazo o decisión pendiente del paciente.</p>
+                  </div></header>
+                  <label>Plan y registro de la explicación
+                    <textarea formControlName="workPlan" rows="8" placeholder="Plan propuesto e información discutida con el paciente"></textarea>
+                  </label>
+                  <app-clinical-note-builder title="Preparar el registro de la conversación"
+                    description="Incorpora la conversación al plan clínico. Adjunta el documento de consentimiento del procedimiento en la ficha cuando corresponda."
+                    [fields]="noteFields.consent" [draftForm]="noteDrafts.consent"
+                    [disabled]="saving() || !canWrite() || current()!.status !== 'BORRADOR'"
+                    (incorporate)="incorporateNote('consent')" (discard)="discardNote('consent')" />
+                  <label class="consent"><input type="checkbox" formControlName="patientConsent" /><span>
+                    <strong>Conformidad del paciente con la información registrada</strong>
+                    <small>Se explicó la información registrada y el paciente manifiesta conformidad. Registra también su decisión sobre el tratamiento.</small>
+                  </span></label>
+                  <div class="clinical-note"><svg lucideShieldAlert></svg><p>
+                    La conformidad y la firma del presupuesto no sustituyen el registro del consentimiento informado del procedimiento.
+                  </p></div>
+                  <div class="workflow-actions">
+                    <a [routerLink]="['/sistema/pacientes', current()!.patientId]">Consultar o adjuntar consentimiento en la ficha</a>
+                  </div>
+                </section>
+              }
+
+              @if (tab() === 'procedure') {
+                <section class="form-card">
+                  <header><span><svg lucideStethoscope></svg></span><div>
+                    <h3>Procedimiento realizado y evolución</h3>
+                    <p>Documenta lo efectivamente realizado en esta consulta, las piezas tratadas y la respuesta del paciente. Si solo hubo evaluación, regístralo.</p>
+                  </div></header>
+                  <label>Procedimiento realizado y evolución
+                    <textarea formControlName="evolution" rows="10" placeholder="Procedimiento, localización, técnica, respuesta e incidencias observadas"></textarea>
+                  </label>
+                  <app-clinical-note-builder title="Registro específico de procedimiento quirúrgico"
+                    description="Úsalo cuando corresponda a la intervención. Incorpora el registro a la evolución y guarda el borrador."
+                    [fields]="noteFields.procedure" [draftForm]="noteDrafts.procedure"
+                    [disabled]="saving() || !canWrite() || current()!.status !== 'BORRADOR'"
+                    (incorporate)="incorporateNote('procedure')" (discard)="discardNote('procedure')" />
                 </section>
               }
 
@@ -436,17 +519,11 @@
                   <header>
                     <span class="green"><svg lucideCheck></svg></span>
                     <div>
-                      <h3>Evolución, indicaciones y cierre</h3>
-                      <p>Completa el resultado de la atención antes de aprobar.</p>
+                      <h3>Indicaciones, seguimiento y cierre de consulta</h3>
+                      <p>Revisa las indicaciones, el seguimiento y la documentación antes de cerrar esta consulta. El cierre no implica el alta del tratamiento.</p>
                     </div>
                   </header>
                   <label
-                    >Evolución<textarea
-                      formControlName="evolution"
-                      rows="6"
-                      placeholder="Procedimiento realizado y respuesta observada"
-                    ></textarea></label
-                  ><label
                     >Indicaciones<textarea
                       formControlName="instructions"
                       rows="5"
@@ -458,8 +535,8 @@
                       >Próximo control<input type="date" formControlName="nextControlDate" /></label
                     ><label class="check-line"
                       ><input type="checkbox" formControlName="discharged" /><span
-                        ><strong>Alta del paciente</strong
-                        ><small>Finalizó el plan de trabajo</small></span
+                        ><strong>Alta del tratamiento</strong
+                        ><small>Marca solo si finalizó el tratamiento; es independiente del cierre de esta consulta.</small></span
                       ></label
                     >
                   </div>
@@ -471,24 +548,23 @@
                       ></textarea>
                     </label>
                   }
-                  <label class="consent"
-                    ><input type="checkbox" formControlName="patientConsent" /><span
-                      ><strong>Conformidad del paciente</strong
-                      ><small
-                        >Se explicó la información registrada y el paciente manifiesta
-                        conformidad.</small
-                      ></span
-                    ></label
-                  >
+                  <div class="clinical-note"><svg lucideClipboardCheck></svg><p>
+                    Antes de finalizar, revisa la evolución y el consentimiento. Si registraste odontogramas,
+                    deben estar aprobados para cerrar la atención.
+                  </p></div>
+                  <div class="workflow-actions">
+                    <button type="button" (click)="setTab('procedure')">Revisar procedimiento realizado</button>
+                    <button type="button" (click)="setTab('consent')">Revisar información y consentimiento</button>
+                  </div>
                 </section>
               }
               <nav class="step-navigation" aria-label="Continuar historia clínica">
-                <span>Paso {{ tabNumber() }} de 5</span>
+                <span>Paso {{ tabNumber() }} de {{ steps.length }}</span>
                 <div>
                   @if (tabNumber() > 1) {
                     <button type="button" (click)="moveTab(-1)">Anterior</button>
                   }
-                  @if (tabNumber() < 5) {
+                  @if (tabNumber() < steps.length) {
                     <button type="button" class="next" (click)="moveTab(1)">Siguiente paso</button>
                   }
                 </div>

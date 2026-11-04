@@ -45,7 +45,7 @@ export class ClinicalApiService {
         },
         { errorMessage: 'No se pudo iniciar la atención.' },
       )
-      .pipe(switchMap((id) => this.get(Number(id))));
+      .pipe(switchMap((id) => this.api.refreshAfterMutation(() => this.get(Number(id)))));
   }
 
   update(id: number, payload: ClinicalPayload): Observable<ClinicalEncounter> {
@@ -58,7 +58,7 @@ export class ClinicalApiService {
         },
         { errorMessage: 'No se pudo actualizar la atención.' },
       )
-      .pipe(switchMap((encounterId) => this.get(Number(encounterId))));
+      .pipe(switchMap((encounterId) => this.api.refreshAfterMutation(() => this.get(Number(encounterId)))));
   }
 
   finalize(id: number, version: number): Observable<ClinicalEncounter> {
@@ -72,6 +72,6 @@ export class ClinicalApiService {
         },
         { errorMessage: 'No se pudo finalizar la atención.' },
       )
-      .pipe(switchMap((encounterId) => this.get(Number(encounterId))));
+      .pipe(switchMap((encounterId) => this.api.refreshAfterMutation(() => this.get(Number(encounterId)))));
   }
 }

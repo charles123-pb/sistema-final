@@ -157,7 +157,6 @@
 .messenger {
   display: grid;
   grid-template-columns: 320px minmax(390px, 1fr) 290px;
-  height: calc(100dvh - 205px);
   min-height: 570px;
   overflow: hidden;
   border: 1px solid #d9e4e9;
@@ -196,7 +195,6 @@
   font-size: 0.78rem;
 }
 .conversation-list {
-  height: calc(100% - 65px);
   overflow: auto;
 }
 .conversation-list > button {
@@ -251,7 +249,6 @@
 }
 .conversation-copy strong {
   overflow: hidden;
-  font-size: 0.67rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -259,7 +256,6 @@
   overflow: hidden;
   margin-top: 4px;
   color: #7c8f9d;
-  font-size: 0.56rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -269,7 +265,6 @@
 }
 .conversation-meta time {
   color: #91a0aa;
-  font-size: 0.51rem;
 }
 .conversation-meta b {
   display: grid;
@@ -303,13 +298,9 @@
 .chat-header small {
   display: block;
 }
-.chat-header strong {
-  font-size: 0.7rem;
-}
 .chat-header small {
   margin-top: 4px;
   color: #79909f;
-  font-size: 0.55rem;
 }
 .mobile-back {
   display: none;
@@ -345,7 +336,6 @@
 .messages > article {
   max-width: 72%;
   align-self: flex-start;
-  padding: 9px 11px;
   border-radius: 4px 12px 12px 12px;
   background: #fff;
   box-shadow: 0 2px 5px #18394e12;
@@ -362,8 +352,6 @@
 .messages article p {
   margin: 0;
   color: #355368;
-  font-size: 0.67rem;
-  line-height: 1.5;
   white-space: pre-wrap;
 }
 .messages footer {
@@ -373,9 +361,6 @@
   justify-content: flex-end;
   gap: 3px;
   color: #80919c;
-}
-.messages footer time {
-  font-size: 0.49rem;
 }
 .messages footer svg {
   width: 13px;
@@ -453,14 +438,12 @@
 }
 .patient-card h2 {
   margin: 0;
-  font-size: 0.77rem;
 }
 .patient-card p,
 .patient-card a,
 .details-panel section p {
   margin: 5px 0;
   color: #78909f;
-  font-size: 0.57rem;
 }
 .patient-card a {
   color: #16798b;
@@ -476,12 +459,8 @@
   width: 16px;
   color: #168094;
 }
-.details-panel section > header strong {
-  font-size: 0.63rem;
-}
 .details-panel section h3 {
   margin: 10px 0 4px;
-  font-size: 0.65rem;
 }
 .appointment-status {
   display: inline-block;
@@ -517,7 +496,6 @@
   color: #526f82;
   text-decoration: none;
   background: #fff;
-  font-size: 0.52rem;
   font-weight: 750;
 }
 .quick-actions svg {
@@ -547,7 +525,6 @@
 }
 .chat-placeholder h2 {
   margin: 13px 0 3px;
-  font-size: 0.9rem;
 }
 .chat-placeholder p,
 .empty p,
@@ -556,67 +533,6 @@
 }
 .empty svg {
   width: 25px;
-}
-
-.followups-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
-.followups-grid article {
-  padding: 14px;
-  border: 1px solid #dce6eb;
-  border-radius: 13px;
-  background: #fff;
-}
-.followups-grid article.alert {
-  border-color: #efbec3;
-}
-.followups-grid article header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.followups-grid article header div {
-  flex: 1;
-}
-.followups-grid strong,
-.followups-grid small {
-  display: block;
-}
-.followups-grid strong {
-  font-size: 0.66rem;
-}
-.followups-grid small {
-  margin-top: 3px;
-  color: #82949f;
-  font-size: 0.53rem;
-}
-.followups-grid i {
-  font-size: 0.5rem;
-  font-style: normal;
-}
-.followups-grid blockquote {
-  margin: 10px 0;
-  padding: 9px;
-  border-radius: 9px;
-  background: #f3f7f8;
-  font-size: 0.62rem;
-}
-.followups-grid article > button {
-  display: flex;
-  margin-left: auto;
-  align-items: center;
-  gap: 4px;
-  border: 0;
-  color: #fff;
-  background: #1b765d;
-  padding: 6px 8px;
-  border-radius: 7px;
-  font-size: 0.54rem;
-}
-.followups-grid button svg {
-  width: 13px;
 }
 .scrim {
   position: fixed;
@@ -793,9 +709,6 @@
   .details-panel {
     display: none;
   }
-  .followups-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
 }
 @media (max-width: 720px) {
   .whatsapp-page {
@@ -833,9 +746,6 @@
   }
   .messages > article {
     max-width: 86%;
-  }
-  .followups-grid {
-    grid-template-columns: 1fr;
   }
   .page-header h1 {
     font-size: 1.35rem;
@@ -1505,5 +1415,219 @@
   }
   .messages article p {
     font-size: 0.8rem;
+  }
+}
+
+/* Summary and review queue share the same visual hierarchy as the inbox. */
+.followup-overview {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.followup-overview > article {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 88px;
+  padding: 16px;
+  border: 1px solid #dce7eb;
+  border-radius: 16px;
+  background: #fff;
+  color: #18364d;
+  text-align: left;
+}
+.overview-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex: none;
+  border-radius: 13px;
+  background: #eaf5f6;
+  color: #13778a;
+}
+.overview-icon svg {
+  width: 21px;
+  height: 21px;
+}
+.overview-icon.attention {
+  background: #fff4e5;
+  color: #a56918;
+}
+.overview-icon.online {
+  background: #e7f7ee;
+  color: #197257;
+}
+.followup-overview strong,
+.followup-overview small {
+  display: block;
+}
+.followup-overview strong {
+  font-size: 1.15rem;
+}
+.followup-overview small {
+  margin-top: 4px;
+  font-size: 0.75rem;
+  color: #637c8d;
+}
+.overview-hint {
+  margin-left: auto;
+  font-size: 0.7rem;
+  color: #13778a;
+}
+.inbox-heading {
+  padding: 16px 14px 0;
+}
+.inbox-heading strong,
+.inbox-heading small {
+  display: block;
+}
+.inbox-heading strong {
+  font-size: 0.85rem;
+}
+.inbox-heading small {
+  margin-top: 5px;
+  color: #637c8d;
+  font-size: 0.72rem;
+}
+.conversation-panel {
+  display: flex;
+  flex-direction: column;
+}
+.conversation-search {
+  flex: none;
+}
+.conversation-list {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+}
+.messenger {
+  height: min(780px, calc(100dvh - 280px));
+}
+.chat-panel,
+.messages {
+  min-height: 0;
+}
+.chat-placeholder {
+  padding: 24px;
+}
+.chat-placeholder h2 {
+  max-width: 340px;
+  font-size: 1.2rem;
+  line-height: 1.4;
+}
+.chat-placeholder p {
+  max-width: 330px;
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid #168093;
+  outline-offset: 3px;
+}
+@media (max-width: 1100px) {
+  .overview-hint {
+    display: none;
+  }
+}
+@media (max-width: 720px) {
+  .page-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .page-header h1 {
+    font-size: 1.5rem;
+  }
+  .header-actions {
+    width: 100%;
+  }
+  .connection span,
+  .header-actions .primary {
+    font-size: 0.75rem;
+  }
+  .header-actions .primary {
+    width: auto;
+    padding: 0 12px;
+  }
+  .followup-overview {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .followup-overview > article {
+    min-height: 64px;
+    padding: 12px;
+  }
+  .followup-overview strong {
+    font-size: 1rem;
+  }
+  .messenger {
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+  }
+  .conversation-panel {
+    height: 560px;
+  }
+  .chat-panel {
+    height: 580px;
+    border-radius: 16px;
+    overflow: hidden;
+  }
+  .messenger.has-selection .details-panel {
+    display: block;
+    border-left: 0;
+    border-top: 1px solid #e1eaee;
+  }
+  .conversation-list {
+    height: auto;
+  }
+}
+
+.header-actions {
+  flex-wrap: wrap;
+}
+
+.header-actions .connection {
+  cursor: default;
+}
+.assistant-settings {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 20px;
+  border: 1px solid #ddd7ee;
+  border-radius: 16px;
+  background: #faf8ff;
+}
+.assistant-settings small {
+  font-size: 0.68rem;
+  letter-spacing: 0.07em;
+  color: #665197;
+  font-weight: 750;
+}
+.assistant-settings h3 {
+  margin: 6px 0;
+  font-size: 1rem;
+}
+.assistant-settings p {
+  margin: 0;
+  color: #637c8d;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+@media (max-width: 720px) {
+  .assistant-settings {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .header-actions .connection span {
+    font-size: 0.75rem;
   }
 }

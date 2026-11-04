@@ -3,6 +3,7 @@ import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 import { BookingRequestApiService } from '../../data-access/booking-request-api.service';
 import { BookingRequest } from '../../models/booking-request.models';
+import { AuthService } from '../../../../core/auth/auth.service';
 import { BookingRequests } from './booking-requests';
 
 describe('BookingRequests: registrar contacto', () => {
@@ -22,6 +23,7 @@ describe('BookingRequests: registrar contacto', () => {
       imports: [BookingRequests],
       providers: [
         provideRouter([]),
+        { provide: AuthService, useValue: { hasPermission: () => true } },
         { provide: BookingRequestApiService, useValue: { manage, list } },
       ],
     }).compileComponents();
@@ -29,6 +31,16 @@ describe('BookingRequests: registrar contacto', () => {
   });
 
   afterEach(() => vi.restoreAllMocks());
+
+  it('no modifica solicitudes ni agenda cuando solo tiene acceso de lectura', () => {
+    TestBed.inject(AuthService).hasPermission = () => false;
+    const reader = TestBed.createComponent(BookingRequests).componentInstance;
+    const prompt = vi.spyOn(window, 'prompt');
+    reader.manage(request, 'CONTACTADO');
+    reader.schedule(request);
+    expect(prompt).not.toHaveBeenCalled();
+    expect(manage).not.toHaveBeenCalled();
+  });
 
   it('no modifica la solicitud cuando se cancela la observación', () => {
     vi.spyOn(window, 'prompt').mockReturnValue(null);

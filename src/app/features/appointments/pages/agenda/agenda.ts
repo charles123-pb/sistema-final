@@ -3,6 +3,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  HostListener,
   OnInit,
   computed,
   inject,
@@ -31,6 +32,7 @@ import {
   LucideX,
 } from '@lucide/angular';
 import { forkJoin, Observable, TimeoutError, timeout } from 'rxjs';
+import { canLeaveEditor, protectBeforeUnload } from '../../../../core/navigation/pending-changes.guard';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { SupabaseErrorService } from '../../../../core/supabase/supabase-error.service';
 import { READ_REQUEST_TIMEOUT_MS } from '../../../../core/supabase/request-timeout';
@@ -109,6 +111,7 @@ export class Agenda implements OnInit {
   readonly loadingSlots = signal(false);
   readonly selectedStart = signal('');
   readonly bookingRequest = signal<BookingRequest | null>(null);
+  readonly canClinical = this.auth.hasPermission('CLINICA_LEER');
   readonly canWrite = signal(this.auth.hasPermission('CITA_ESCRIBIR'));
   readonly canCreate = computed(() =>
     this.canWrite() && !this.loadingConfiguration() &&
@@ -256,6 +259,7 @@ export class Agenda implements OnInit {
   }
 
   openNew(request?: BookingRequest): void {
+    if (!this.canWrite() || !canLeaveEditor(this)) return;
     this.invalidatePatientSearch();
     const preferredDate =
       request?.preferredDate && request.preferredDate >= this.dateKey(new Date())
@@ -290,6 +294,7 @@ export class Agenda implements OnInit {
   }
 
   openEdit(item: Appointment): void {
+    if (!this.canWrite() || !canLeaveEditor(this)) return;
     this.invalidatePatientSearch();
     this.bookingRequest.set(null);
     const patient: PatientSummary = {
@@ -324,7 +329,7 @@ export class Agenda implements OnInit {
   }
 
   closeModal(): void {
-    if (this.saving()) return;
+    if (!canLeaveEditor(this)) return;
     this.invalidatePatientSearch();
     this.slotsRequestId++;
     this.loadingSlots.set(false);
@@ -332,6 +337,13 @@ export class Agenda implements OnInit {
     this.bookingRequest.set(null);
     this.clearBookingQuery();
   }
+
+  hasUnsavedChanges(): boolean {
+    return this.modalOpen() && (this.form.dirty || this.selectedStart() !== (this.editing()?.start ?? ''));
+  }
+  isSavingChanges(): boolean { return this.saving(); }
+  @HostListener('window:beforeunload', ['$event'])
+  beforeUnload(event: Event): void { protectBeforeUnload(event, this); }
 
   searchPatients(query: string): void {
     this.invalidatePatientSearch();
@@ -418,7 +430,7 @@ export class Agenda implements OnInit {
   }
 
   save(): void {
-    if (this.saving()) return;
+    if (!this.canWrite() || this.saving()) return;
     this.clearMessages();
     const patient = this.selectedPatient();
     const bookingRequest = this.bookingRequest();
@@ -481,6 +493,7 @@ export class Agenda implements OnInit {
 
   advance(item: Appointment): void {
     if (item.status === 'EN_ESPERA' || item.status === 'EN_ATENCION') {
+      if (!this.auth.hasPermission('CLINICA_LEER') || this.saving()) return;
       void this.router.navigate(['/sistema/atencion'], { queryParams: { appointmentId: item.id } });
       return;
     }
@@ -490,16 +503,23 @@ export class Agenda implements OnInit {
   }
 
   cancel(item: Appointment): void {
+    if (!this.canWrite() || this.saving()) return;
     const reason = window.prompt('Indica el motivo de cancelación:');
     if (!reason?.trim()) return;
     this.updateStatus(item, 'CANCELADA', reason.trim(), 'Cita cancelada.');
   }
 
   noShow(item: Appointment): void {
+    if (!this.canWrite() || this.saving()) return;
     if (!window.confirm(`¿Registrar que ${item.patientName} no asistió?`)) return;
     this.updateStatus(item, 'NO_ASISTIO', 'Paciente no asistió', 'Inasistencia registrada.');
   }
 
+  canAdvance(item: Appointment): boolean {
+    return ['EN_ESPERA', 'EN_ATENCION'].includes(item.status)
+      ? this.canClinical
+      : this.canWrite() && !!this.nextStatus(item.status);
+  }
   nextActionLabel(status: AppointmentStatus): string {
     return (
       (
@@ -532,7 +552,7 @@ export class Agenda implements OnInit {
     reason: string | undefined,
     success: string,
   ): void {
-    if (this.saving()) return;
+    if (!this.canWrite() || this.saving()) return;
     this.saving.set(true);
     this.clearMessages();
     this.api.changeStatus(item.id, status, item.version, reason)

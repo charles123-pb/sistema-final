@@ -1,0 +1,7 @@
+project_id = "dental-americana"
+
+[functions.whatsapp-webhook]
+verify_jwt = false
+
+[functions.dentalia-whatsapp-session]
+verify_jwt = false

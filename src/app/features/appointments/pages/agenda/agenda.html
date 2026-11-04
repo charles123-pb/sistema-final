@@ -146,21 +146,21 @@
                 </div>
               </div>
               @if (
-                canWrite() &&
+                (canWrite() || canAdvance(item)) &&
                 item.status !== 'COMPLETADA' &&
                 item.status !== 'CANCELADA' &&
                 item.status !== 'NO_ASISTIO'
               ) {
                 <div class="appointment-actions">
-                  @if (nextActionLabel(item.status)) {
+                  @if (canAdvance(item) && nextActionLabel(item.status)) {
                     <button class="advance" [disabled]="saving()" (click)="advance(item)">
                       {{ nextActionLabel(item.status) }}
                     </button>
                   }
-                  @if (item.status === 'CONFIRMADA' || item.status === 'EN_ESPERA') {
+                  @if (canWrite() && (item.status === 'CONFIRMADA' || item.status === 'EN_ESPERA')) {
                     <button (click)="noShow(item)">No asistió</button>
                   }
-                  <button class="cancel" (click)="cancel(item)">Cancelar</button>
+                  @if (canWrite()) { <button class="cancel" (click)="cancel(item)">Cancelar</button> }
                 </div>
               }
             </article>

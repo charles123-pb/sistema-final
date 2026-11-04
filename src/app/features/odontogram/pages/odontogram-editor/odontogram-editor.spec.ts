@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import { of, Subject, throwError } from 'rxjs';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { SupabaseErrorService } from '../../../../core/supabase/supabase-error.service';
@@ -80,7 +80,7 @@ describe('OdontogramEditor: edición y respuestas pendientes', () => {
       providers: [
         { provide: OdontogramApiService, useValue: api },
         { provide: ClinicalApiService, useValue: { get: () => of(encounter) } },
-        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => '3' } } } },
+        { provide: ActivatedRoute, useValue: { paramMap: of(convertToParamMap({ encounterId: '3' })) } },
         { provide: Router, useValue: {} },
         { provide: AuthService, useValue: { hasPermission: () => true } },
         {

@@ -17,6 +17,7 @@ export class SupabaseErrorService {
       return 'La consulta tardó demasiado. Vuelve a intentarlo.';
     }
     const candidate = error as SupabaseLikeError | null;
+    if (candidate?.message?.includes('Invalid API key')) return 'La conexión del sistema no está configurada correctamente. Contacta al administrador.';
     if (candidate?.code === '23505') return 'Ya existe un registro con esos datos.';
     if (candidate?.code === '42501') return 'No tienes permiso para realizar esta operación.';
     if (candidate?.code === 'P0001' && candidate.message) return candidate.message;

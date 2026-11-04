@@ -74,7 +74,7 @@
           @if (item.internalObservation) {
             <p class="internal">{{ item.internalObservation }}</p>
           }
-          @if (item.status === 'PENDIENTE') {
+          @if (canWrite && item.status === 'PENDIENTE') {
             <footer>
               <button [disabled]="saving()" (click)="manage(item, 'DESCARTADO')">
                 <svg lucideTrash2></svg>Descartar</button
@@ -86,7 +86,7 @@
               </button>
             </footer>
           }
-          @if (item.status === 'CONTACTADO') {
+          @if (canWrite && item.status === 'CONTACTADO') {
             <footer>
               <button class="scheduled" [disabled]="saving()" (click)="schedule(item)">
                 <svg lucideUserCheck></svg>Agendar cita

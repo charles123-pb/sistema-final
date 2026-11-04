@@ -11,6 +11,7 @@ import {
   LucideMapPin, LucidePhone, LucidePill, LucidePlus, LucidePower, LucidePrinter,
   LucideShieldAlert, LucideUpload, LucideUserRound,
 } from '@lucide/angular';
+import { protectBeforeUnload } from '../../../../core/navigation/pending-changes.guard';
 import { AuthService } from '../../../../core/auth/auth.service';
 import { SupabaseErrorService } from '../../../../core/supabase/supabase-error.service';
 import { PatientApiService } from '../../data-access/patient-api.service';
@@ -18,13 +19,14 @@ import {
   AllergyPayload, AllergySeverity, AllergyStatus, HistoryPayload, HistoryStatus,
   HistoryType, MedicationPayload, PatientDetail, PatientFile, PatientFileCategory,
 } from '../../models/patient.models';
-import { Observable, timeout } from 'rxjs';
+import { distinctUntilChanged, map, Observable, timeout } from 'rxjs';
 import { READ_REQUEST_TIMEOUT_MS } from '../../../../core/supabase/request-timeout';
 
 type DetailTab = 'summary' | 'histories' | 'medication' | 'files';
 
 @Component({
   selector: 'app-patient-detail',
+  host: { '(window:beforeunload)': 'beforeUnload($event)' },
   imports: [ReactiveFormsModule, RouterLink, DatePipe, DecimalPipe, LucideActivity,
     LucideAlertTriangle, LucideArrowLeft, LucideBriefcaseMedical, LucideCalendarPlus,
     LucideCheck, LucideDownload, LucideEdit3, LucideFilePlus2, LucideFiles,
@@ -43,6 +45,7 @@ export class PatientDetailPage implements OnInit {
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private readonly errors = inject(SupabaseErrorService);
+  private loadRequestId = 0;
 
   readonly patient = signal<PatientDetail | null>(null);
   readonly loading = signal(true);
@@ -86,13 +89,36 @@ export class PatientDetailPage implements OnInit {
     category: this.fb.control<PatientFileCategory>('DOCUMENTO'), description: ['', Validators.maxLength(300)],
   });
 
+  hasUnsavedChanges(): boolean {
+    const forms = {
+      contact: this.contactForm, history: this.historyForm, allergy: this.allergyForm,
+      medication: this.medicationForm, file: this.fileForm,
+    };
+    const open = this.openForm();
+    return !!open && (forms[open].dirty || (open === 'file' && this.selectedFile() !== null));
+  }
+  isSavingChanges(): boolean { return this.saving(); }
+  beforeUnload(event: Event): void { protectBeforeUnload(event, this); }
+
   ngOnInit(): void {
-    const id = Number(this.route.snapshot.paramMap.get('id'));
-    if (!Number.isFinite(id) || id <= 0) {
-      void this.router.navigate(['/sistema/pacientes']);
-      return;
-    }
-    this.load(id);
+    this.route.paramMap.pipe(
+      map((params) => Number(params.get('id'))),
+      distinctUntilChanged(),
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe((id) => {
+      this.loadRequestId++;
+      this.patient.set(null);
+      this.openForm.set(null);
+      this.selectedFile.set(null);
+      this.downloadingId.set(null);
+      [this.contactForm, this.historyForm, this.allergyForm, this.medicationForm, this.fileForm]
+        .forEach((form) => form.reset());
+      if (!Number.isSafeInteger(id) || id <= 0) {
+        void this.router.navigate(['/sistema/pacientes']);
+        return;
+      }
+      this.load(id);
+    });
   }
 
   setTab(tab: DetailTab): void { this.tab.set(tab); this.openForm.set(null); this.clearMessages(); }
@@ -174,6 +200,7 @@ export class PatientDetailPage implements OnInit {
     this.api.downloadFile(patient.id, file.id)
       .pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (response: HttpResponse<Blob>) => {
+        if (this.patient()?.id !== patient.id) return;
         const blob = response.body;
         if (blob) {
           const url = URL.createObjectURL(blob); const anchor = document.createElement('a');
@@ -183,6 +210,7 @@ export class PatientDetailPage implements OnInit {
         this.downloadingId.set(null);
       },
       error: (error: unknown) => {
+        if (this.patient()?.id !== patient.id) return;
         this.downloadingId.set(null);
         this.error.set(this.errors.toUserMessage(error, 'No se pudo descargar el archivo.'));
       },
@@ -205,10 +233,12 @@ export class PatientDetailPage implements OnInit {
   print(): void { window.print(); }
 
   private load(id: number): void {
+    const requestId = ++this.loadRequestId;
     this.loading.set(true); this.error.set('');
     this.api.get(id).pipe(timeout({ first: READ_REQUEST_TIMEOUT_MS }), takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: (patient) => { this.patient.set(patient); this.loading.set(false); },
+      next: (patient) => { if (requestId !== this.loadRequestId) return; this.patient.set(patient); this.loading.set(false); },
       error: (error: unknown) => {
+        if (requestId !== this.loadRequestId) return;
         this.loading.set(false);
         this.error.set(this.errors.toUserMessage(error, 'No se pudo cargar la ficha del paciente.'));
       },

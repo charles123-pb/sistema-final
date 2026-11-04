@@ -1,0 +1,11 @@
+:host { display: block; margin-top: 18px; }
+.note-builder { padding: 14px; border: 1px solid #cfdfe6; border-radius: 12px; background: #f6fafb; }
+summary { cursor: pointer; font-weight: 750; }
+p { color: #526d80; font-size: .8rem; line-height: 1.5; }
+fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+label { display: grid; gap: 6px; margin: 12px 0; font-size: .8rem; font-weight: 650; }
+textarea { width: 100%; box-sizing: border-box; padding: 9px; border: 1px solid #cbdce5; border-radius: 8px; font: inherit; background: white; }
+small { color: #a24249; }
+.note-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+button { padding: 9px 12px; border: 1px solid #bfd4dd; border-radius: 8px; color: #155d70; background: white; font: inherit; cursor: pointer; }
+button:disabled { opacity: .55; cursor: default; }

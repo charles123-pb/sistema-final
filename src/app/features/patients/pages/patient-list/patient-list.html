@@ -35,7 +35,7 @@
             <span class="patient-cell"><i>{{initials(patient.fullName)}}</i><span><strong>{{patient.fullName}}</strong><small>{{patient.historyNumber}} · {{patient.age}} años</small></span></span>
             <span data-label="Documento"><strong>{{patient.documentNumber || 'Sin documento'}}</strong><small>{{patient.documentType.replaceAll('_', ' ')}}</small></span>
             <span data-label="Contacto"><strong>{{patient.mobile || 'No registrado'}}</strong><small>{{patient.email || 'Sin correo'}}</small></span>
-            <span data-label="Alertas">@if(patient.activeAllergies){<b class="allergy"><svg lucideAlertTriangle></svg>{{patient.activeAllergies}} alergia(s)</b>}@else{<b class="clear">Sin alertas</b>}</span>
+            <span data-label="Alertas">@if(!canReadClinical || patient.allergiesAvailable === false){<b class="allergy">Alertas no disponibles</b>}@else if(patient.activeAllergies){<b class="allergy"><svg lucideAlertTriangle></svg>{{patient.activeAllergies}} alergia(s)</b>}@else{<b class="clear">Sin alertas</b>}</span>
             <span data-label="Registro"><strong>{{patient.createdAt | date:'dd/MM/yyyy'}}</strong><small [class.inactive]="!patient.active">{{patient.active ? 'Activo' : 'Inactivo'}}</small></span>
             <svg lucideChevronRight class="open-icon"></svg>
           </a>

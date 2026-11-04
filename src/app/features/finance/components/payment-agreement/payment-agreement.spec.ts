@@ -51,7 +51,28 @@ describe('Adelanto firmado: integridad del importe y continuidad', () => {
     expect(page.signed()).toBe(true);
   });
 
+  it('conserva el importe y la firma al cancelar una actualización', () => {
+    page.form.controls.amount.setValue(100);
+    page.signed.set(true);
+    const calls = getPlan.mock.calls.length;
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    page.reload();
+    expect(page.form.controls.amount.value).toBe(100);
+    expect(page.signed()).toBe(true);
+    expect(getPlan).toHaveBeenCalledTimes(calls);
+  });
+
+  it('no reinicia un pago pendiente al cancelar su reapertura', () => {
+    page.form.controls.amount.setValue(100);
+    page.signed.set(true);
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    page.openPayment();
+    expect(page.form.controls.amount.value).toBe(100);
+    expect(page.signed()).toBe(true);
+  });
+
   it('no reutiliza el presupuesto ni la firma si falla la actualización', () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
     page.signed.set(true);
     getPlan.mockReturnValue(throwError(() => new Error('Servicio no disponible')));
     page.reload();

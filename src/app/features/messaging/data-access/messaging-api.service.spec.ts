@@ -55,6 +55,12 @@ describe('MessagingApiService', () => {
       'No se pudieron consultar los pendientes de WhatsApp.',
     );
   });
+  it('acepta una respuesta vacía al marcar una conversación como leída', async () => {
+    rpc.mockResolvedValue({ data: null, error: null });
+    await expect(firstValueFrom(service.markRead(7))).resolves.toBeUndefined();
+    expect(rpc).toHaveBeenCalledWith('marcar_conversacion_leida', { conversacion_id: 7 });
+  });
+
   it('marks a follow-up as professionally reviewed', async () => {
     await firstValueFrom(service.review(9, 3));
     expect(rpc).toHaveBeenCalledWith('revisar_seguimiento', {

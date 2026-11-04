@@ -1,0 +1,229 @@
+.followups-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.followups-grid article {
+  border: 1px solid #dce6eb;
+  background: #fff;
+}
+.followups-grid article.alert {
+  border-color: #efbec3;
+}
+.followups-grid article header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.followups-grid article header div {
+  flex: 1;
+}
+.followups-grid strong,
+.followups-grid small {
+  display: block;
+}
+.followups-grid small {
+  margin-top: 3px;
+  color: #82949f;
+}
+.followups-grid i {
+  font-size: 0.5rem;
+  font-style: normal;
+}
+.followups-grid blockquote {
+  margin: 10px 0;
+  border-radius: 9px;
+  background: #f3f7f8;
+}
+.followups-grid article > button {
+  display: flex;
+  margin-left: auto;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  color: #fff;
+  background: #1b765d;
+  border-radius: 7px;
+}
+.followups-grid button svg {
+  width: 13px;
+}
+@media (max-width: 1100px) {
+  .followups-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 720px) {
+  .followups-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.followup-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+  margin: 12px 0 18px;
+}
+.followup-heading small {
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  color: #168093;
+  font-weight: 750;
+}
+.followup-heading h2 {
+  margin: 6px 0;
+  font-size: 1.35rem;
+  letter-spacing: -0.025em;
+}
+.followup-heading p {
+  margin: 0;
+  max-width: 700px;
+  color: #637c8d;
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+.followup-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+.followup-filters button {
+  padding: 10px 14px;
+  border: 1px solid #dce7eb;
+  border-radius: 999px;
+  background: #fff;
+  color: #526f82;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+.followup-filters button[aria-pressed='true'] {
+  background: #13778a;
+  border-color: #13778a;
+  color: #fff;
+}
+.followups-grid article {
+  padding: 20px;
+  border-radius: 16px;
+  box-shadow: 0 4px 14px #18364d06;
+}
+.followups-grid article.alert {
+  border-left: 4px solid #d87857;
+  background: #fffdfb;
+}
+.followups-grid strong {
+  font-size: 0.86rem;
+}
+.followups-grid small {
+  font-size: 0.74rem;
+}
+.followups-grid blockquote {
+  font-size: 0.84rem;
+  line-height: 1.65;
+  padding: 14px;
+  overflow-wrap: anywhere;
+}
+.followup-status {
+  padding: 5px 8px;
+  border-radius: 7px;
+  color: #526f82;
+  background: #edf3f6;
+  text-transform: capitalize;
+}
+.followup-status[data-status='ALERTA'] {
+  background: #fff0e9;
+  color: #a24e27;
+}
+.followup-status[data-status='RESPONDIDO'] {
+  background: #e7f3fc;
+  color: #246d9b;
+}
+.followup-status[data-status='REVISADO'] {
+  background: #e8f7ef;
+  color: #197257;
+}
+.followups-grid article > button {
+  min-height: 40px;
+  margin-top: 16px;
+  font-size: 0.78rem;
+  padding: 9px 12px;
+}
+.followups-grid .failure {
+  font-size: 0.78rem;
+  line-height: 1.6;
+}
+.followup-empty {
+  grid-column: 1 / -1;
+  padding: 48px 20px;
+  border: 1px dashed #cddfe5;
+  border-radius: 16px;
+  background: #f8fbfc;
+  text-align: center;
+  color: #637c8d;
+}
+.followup-empty svg {
+  width: 32px;
+  color: #168093;
+}
+.followup-empty h3 {
+  color: #18364d;
+}
+.followup-empty p {
+  font-size: 0.82rem;
+}
+@media (max-width: 720px) {
+  .followups-grid article header {
+    flex-wrap: wrap;
+  }
+  .followup-status {
+    margin-left: 46px;
+  }
+  .followup-heading {
+    align-items: flex-start;
+  }
+}
+.avatar {
+  width: 38px;
+  height: 38px;
+  font-size: 0.62rem;
+}
+.icon-button {
+  width: 40px;
+  color: #557286;
+  border: 1px solid #d6e1e7;
+  background: #fff;
+}
+:host {
+  display: block;
+}
+.avatar {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  background: #208397;
+  font-weight: 800;
+}
+.followup-heading .icon-button {
+  flex: none;
+}
+button:focus-visible {
+  outline: 3px solid #168093;
+  outline-offset: 3px;
+}
+.icon-button {
+  display: grid;
+  min-height: 40px;
+  place-items: center;
+  border-radius: 10px;
+}
+.icon-button svg {
+  width: 16px;
+  height: 16px;
+}
+.failure {
+  color: #a24e27;
+}

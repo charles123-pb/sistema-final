@@ -22,6 +22,8 @@ interface UsernameSessionPayload {
 export class AuthService {
   private readonly supabase = inject(SupabaseClientService).client;
   private readonly readyPromise: Promise<void>;
+  private profileGeneration = 0;
+  private sessionUserId: string | null = null;
 
   readonly token = signal<string | null>(null);
   readonly currentUser = signal<CurrentUser | null>(null);
@@ -36,7 +38,10 @@ export class AuthService {
         return;
       }
       // Keep the auth callback synchronous and read the profile after its internal lock is released.
-      globalThis.setTimeout(() => void this.loadCurrentUser(), 0);
+      const token = session.access_token;
+      globalThis.setTimeout(() => {
+        if (this.token() === token) void this.loadCurrentUser();
+      }, 0);
     });
   }
 
@@ -49,6 +54,8 @@ export class AuthService {
   }
 
   logout(): void {
+    this.profileGeneration++;
+    this.sessionUserId = null;
     this.token.set(null);
     this.clearUser();
     void this.supabase.auth.signOut({ scope: 'local' });
@@ -149,11 +156,27 @@ export class AuthService {
   }
 
   private applyToken(session: Session | null): void {
-    this.token.set(session?.access_token ?? null);
+    const userId = session?.user.id ?? null;
+    if (userId !== this.sessionUserId) this.clearUser();
+    this.sessionUserId = userId;
+    const token = session?.access_token ?? null;
+    if (token !== this.token()) this.profileGeneration++;
+    this.token.set(token);
   }
 
   private async loadCurrentUser(): Promise<CurrentUser | null> {
-    const { data, error } = await this.supabase.rpc('current_user_context');
+    const generation = this.profileGeneration;
+    const token = this.token();
+    if (!token) return null;
+    let result;
+    try {
+      result = await this.supabase.rpc('current_user_context');
+    } catch {
+      if (generation === this.profileGeneration && token === this.token()) this.clearUser();
+      return null;
+    }
+    if (generation !== this.profileGeneration || token !== this.token()) return null;
+    const { data, error } = result;
     if (error || !data) {
       this.clearUser();
       return null;

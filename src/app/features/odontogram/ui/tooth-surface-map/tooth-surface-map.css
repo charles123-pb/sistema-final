@@ -143,3 +143,10 @@
     transition: none;
   }
 }
+
+.surface { position: relative; }
+.multiple-findings {
+  position: absolute; right: 0; bottom: 0; padding: 1px 2px;
+  border-radius: 3px; background: #fff; color: #172b43;
+  font-size: clamp(8px, 9cqi, 14px); font-weight: 800; pointer-events: none;
+}

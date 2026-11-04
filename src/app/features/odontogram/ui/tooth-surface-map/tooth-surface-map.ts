@@ -50,6 +50,8 @@ export class ToothSurfaceMap {
       const condition = finding
         ? CONDITION_OPTIONS.find((option) => option.value === finding.condition)?.label
         : undefined;
+      const related = this.toothFindings().filter((item) => item.surface === surface || item.surface === 'GENERAL');
+      const additional = related.filter((item) => item !== finding);
       const status = finding
         ? `${condition ?? finding.condition}, ${TREATMENT_NAMES[finding.treatmentState]}`
         : 'Sin hallazgo';
@@ -59,8 +61,9 @@ export class ToothSurfaceMap {
         abbreviation: name[0],
         color: finding ? conditionColor(finding.condition) : '#f8fafc',
         hasFinding: !!finding,
+        findingCount: related.length,
         treatmentState: finding?.treatmentState,
-        description: `${name} de la pieza ${tooth}: ${status}`,
+        description: `${name} de la pieza ${tooth}: ${status}${additional.length ? '; Otros hallazgos: ' + additional.map((item) => `${CONDITION_OPTIONS.find((option) => option.value === item.condition)?.label ?? item.condition}, ${TREATMENT_NAMES[item.treatmentState]}`).join('; ') : ''}`,
       };
     });
   });

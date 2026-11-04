@@ -28,7 +28,7 @@ import {
   LucideShieldAlert,
   LucideStethoscope,
 } from '@lucide/angular';
-import { catchError, forkJoin, of, timeout } from 'rxjs';
+import { catchError, distinctUntilChanged, forkJoin, map, of, timeout } from 'rxjs';
 import { READ_REQUEST_TIMEOUT_MS } from '../../../../core/supabase/request-timeout';
 import { AuthService } from '../../../../core/auth/auth.service';
 import {
@@ -45,15 +45,17 @@ import { ClinicalEncounter, ClinicalPayload } from '../../models/clinical.models
 import { TreatmentPlanPage } from '../../../treatments/pages/treatment-plan/treatment-plan';
 import { OdontogramEditor } from '../../../odontogram/pages/odontogram-editor/odontogram-editor';
 
-type ClinicalTab = 'anamnesis' | 'vitals' | 'exam' | 'assessment' | 'closure';
+import { ClinicalNoteBuilder } from '../../components/clinical-note-builder/clinical-note-builder';
+import { CLINICAL_STEPS, CLINICAL_NOTE_FIELDS, ClinicalTab, ClinicalNoteKind, buildClinicalNote } from '../../models/clinical-workflow';
 type AttentionSection = 'history' | 'odontogram' | 'plan';
-const CLINICAL_TABS: ClinicalTab[] = ['anamnesis', 'vitals', 'exam', 'assessment', 'closure'];
+const CLINICAL_TABS: ClinicalTab[] = CLINICAL_STEPS.map((step) => step.tab);
 
 @Component({
   selector: 'app-clinical-workspace',
   host: { '(window:beforeunload)': 'beforeUnload($event)' },
   imports: [
     ReactiveFormsModule,
+    ClinicalNoteBuilder,
     TreatmentPlanPage,
     OdontogramEditor,
     RouterLink,
@@ -96,7 +98,10 @@ export class ClinicalWorkspace implements OnInit {
   readonly error = signal('');
   readonly success = signal('');
   readonly tab = signal<ClinicalTab>('anamnesis');
-  readonly tabNumber = computed(() => CLINICAL_TABS.indexOf(this.tab()) + 1);
+  readonly steps = CLINICAL_STEPS;
+  readonly noteFields = CLINICAL_NOTE_FIELDS;
+  readonly activeTab = computed(() => this.tab() === 'vitals' ? 'exam' : this.tab());
+  readonly tabNumber = computed(() => CLINICAL_TABS.indexOf(this.activeTab()) + 1);
   readonly section = signal<AttentionSection>('history');
   readonly planEditor = viewChild(TreatmentPlanPage);
   readonly odontogramEditor = viewChild(OdontogramEditor);
@@ -115,6 +120,7 @@ export class ClinicalWorkspace implements OnInit {
   private workdayRequestId = 0;
   private searchRequestId = 0;
   private patientRequestId = 0;
+  private contextRequestId = 0;
 
   readonly activeAllergies = computed(
     () => this.patient()?.allergies.filter((item) => item.status === 'ACTIVA') ?? [],
@@ -142,7 +148,7 @@ export class ClinicalWorkspace implements OnInit {
     if (!value.dentalExam?.trim()) missing.push({ label: 'Examen odontológico', tab: 'exam' });
     if (!value.diagnosis?.trim()) missing.push({ label: 'Diagnóstico', tab: 'assessment' });
     if (!value.workPlan?.trim()) missing.push({ label: 'Plan de trabajo', tab: 'assessment' });
-    if (!value.patientConsent) missing.push({ label: 'Conformidad del paciente', tab: 'closure' });
+    if (!value.patientConsent) missing.push({ label: 'Conformidad del paciente', tab: 'consent' });
     return missing;
   }
 
@@ -177,40 +183,139 @@ export class ClinicalWorkspace implements OnInit {
     patientConsent: [false],
   });
 
+  readonly noteDrafts = {
+    risks: this.fb.nonNullable.group({
+      review: ['', Validators.maxLength(1000)],
+      assessment: ['', Validators.maxLength(1000)],
+    }),
+    consent: this.fb.nonNullable.group({
+      procedure: ['', Validators.maxLength(500)],
+      alternatives: ['', Validators.maxLength(500)],
+      risks: ['', Validators.maxLength(1000)],
+      decision: ['', Validators.maxLength(500)],
+    }),
+    procedure: this.fb.nonNullable.group({
+      preoperative: ['', Validators.maxLength(500)],
+      anesthesia: ['', Validators.maxLength(500)],
+      technique: ['', Validators.maxLength(1000)],
+      incidents: ['', Validators.maxLength(500)],
+      postoperative: ['', Validators.maxLength(500)],
+    }),
+  };
+
+  private pendingNote(): ClinicalNoteKind | undefined {
+    return (['risks', 'consent', 'procedure'] as const).find(
+      (kind) => !!buildClinicalNote(kind, this.noteDrafts[kind].getRawValue()),
+    );
+  }
+  incorporateNote(kind: ClinicalNoteKind): void {
+    if (!this.current() || this.current()?.status !== 'BORRADOR' || !this.canWrite() || this.isSavingChanges()) return;
+    if (kind === 'risks' && !this.patient()) {
+      this.error.set('Espera a cargar la ficha antes de registrar su revisión.');
+      return;
+    }
+    if (kind === 'consent' && !this.form.controls.workPlan.value?.trim()) {
+      this.tab.set('assessment');
+      this.error.set('Registra primero el plan propuesto antes de incorporar la conversación con el paciente. La preparación se conserva.');
+      return;
+    }
+    const draft = this.noteDrafts[kind];
+    if (draft.invalid) {
+      draft.markAllAsTouched();
+      this.error.set('Revisa la longitud de los datos antes de incorporarlos.');
+      return;
+    }
+    const note = buildClinicalNote(kind, draft.getRawValue());
+    if (!note) return;
+    const target = kind === 'risks' ? this.form.controls.chronologicalStory
+      : kind === 'consent' ? this.form.controls.workPlan : this.form.controls.evolution;
+    const existing = target.value ?? '';
+    const combined = existing ? `${existing}\n\n${note}` : note;
+    if (combined.length > 4000) {
+      this.error.set('El registro completo supera los 4000 caracteres. Resume el texto antes de incorporarlo; tus datos se conservan.');
+      return;
+    }
+    target.setValue(combined);
+    target.markAsDirty();
+    draft.reset();
+    this.clearMessages();
+  }
+  discardNote(kind: ClinicalNoteKind): void {
+    if (this.isSavingChanges()) return;
+    if (buildClinicalNote(kind, this.noteDrafts[kind].getRawValue()) &&
+      !window.confirm('¿Descartar los datos preparados que aún no incorporaste al registro clínico?')) return;
+    this.noteDrafts[kind].reset();
+  }
+  goToHistoryTab(tab: ClinicalTab): void {
+    if (this.section() !== 'history') this.setSection('history');
+    if (this.section() === 'history') this.setTab(tab);
+  }
+  private resetNoteDrafts(): void {
+    Object.values(this.noteDrafts).forEach((draft) => draft.reset());
+  }
+  private checkPendingNotes(): boolean {
+    const pending = this.pendingNote();
+    if (!pending) return false;
+    this.tab.set(pending);
+    this.error.set('Incorpora o descarta los datos preparados antes de guardar la historia.');
+    return true;
+  }
+
   ngOnInit(): void {
     this.destroyRef.onDestroy(() => {
       clearTimeout(this.searchTimer);
       this.workdayRequestId++;
       this.searchRequestId++;
       this.patientRequestId++;
+      this.contextRequestId++;
     });
     this.loadWorkday();
-    const encounterId = Number(this.route.snapshot.queryParamMap.get('encounterId'));
-    if (Number.isSafeInteger(encounterId) && encounterId > 0) {
-      this.clinicalApi
-        .get(encounterId)
-        .pipe(takeUntilDestroyed(this.destroyRef))
-        .subscribe({
-          next: (encounter) => this.open(encounter),
-          error: (error: unknown) =>
-            this.error.set(this.errors.toUserMessage(error, 'No se pudo recuperar la atención.')),
-        });
-      return;
-    }
-    const appointmentId = Number(this.route.snapshot.queryParamMap.get('appointmentId'));
-    if (appointmentId > 0) {
-      this.appointmentApi
-        .get(appointmentId)
-        .pipe(takeUntilDestroyed(this.destroyRef))
-        .subscribe({
-          next: (appointment) => this.openAppointment(appointment),
-          error: (error: unknown) =>
-            this.error.set(
-              this.errors.toUserMessage(error, 'No se pudo abrir la cita seleccionada.'),
-            ),
-        });
-    }
+    this.route.queryParamMap
+      .pipe(
+        map((params) => ({
+          encounterId: Number(params.get('encounterId')),
+          appointmentId: Number(params.get('appointmentId')),
+        })),
+        distinctUntilChanged((previous, current) =>
+          previous.encounterId === current.encounterId &&
+          previous.appointmentId === current.appointmentId,
+        ),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe(({ encounterId, appointmentId }) => {
+        const requestId = ++this.contextRequestId;
+        if (Number.isSafeInteger(encounterId) && encounterId > 0) {
+          if (this.current()?.id === encounterId) return;
+          this.clinicalApi.get(encounterId)
+            .pipe(timeout({ first: READ_REQUEST_TIMEOUT_MS }), takeUntilDestroyed(this.destroyRef))
+            .subscribe({
+              next: (encounter) => {
+                if (requestId === this.contextRequestId) this.open(encounter);
+              },
+              error: (error: unknown) => {
+                if (requestId === this.contextRequestId)
+                  this.error.set(this.errors.toUserMessage(error, 'No se pudo recuperar la atención.'));
+              },
+            });
+          return;
+        }
+        if (Number.isSafeInteger(appointmentId) && appointmentId > 0) {
+          if (this.current()?.appointmentId === appointmentId) return;
+          this.appointmentApi.get(appointmentId)
+            .pipe(timeout({ first: READ_REQUEST_TIMEOUT_MS }), takeUntilDestroyed(this.destroyRef))
+            .subscribe({
+              next: (appointment) => {
+                if (requestId === this.contextRequestId) this.openAppointment(appointment);
+              },
+              error: (error: unknown) => {
+                if (requestId === this.contextRequestId)
+                  this.error.set(this.errors.toUserMessage(error, 'No se pudo abrir la cita seleccionada.'));
+              },
+            });
+        }
+      });
   }
+
   hasEncounter(appointmentId: number): boolean {
     return this.encounters().some((item) => item.appointmentId === appointmentId);
   }
@@ -226,15 +331,17 @@ export class ClinicalWorkspace implements OnInit {
     forkJoin({
       appointments: this.appointmentApi.list(start.toISOString(), end.toISOString()).pipe(
         catchError(() => {
-          this.workdayWarning.set('No se pudieron cargar las citas. Actualiza para reintentar.');
+          if (requestId === this.workdayRequestId)
+            this.workdayWarning.set('No se pudieron cargar las citas. Actualiza para reintentar.');
           return of([] as Appointment[]);
         }),
       ),
       encounters: this.clinicalApi.search(start.toISOString(), end.toISOString()).pipe(
         catchError(() => {
-          this.workdayWarning.set(
-            'No se pudo consultar la jornada clínica. Actualiza para reintentar.',
-          );
+          if (requestId === this.workdayRequestId)
+            this.workdayWarning.set(
+              'No se pudo consultar la jornada clínica. Actualiza para reintentar.',
+            );
           return of([] as ClinicalEncounter[]);
         }),
       ),
@@ -256,6 +363,7 @@ export class ClinicalWorkspace implements OnInit {
   }
 
   openAppointment(item: Appointment): void {
+    this.contextRequestId++;
     if (this.current()?.appointmentId === item.id) return;
     const existing = this.encounters().find((encounter) => encounter.appointmentId === item.id);
     if (existing) {
@@ -299,6 +407,7 @@ export class ClinicalWorkspace implements OnInit {
   }
 
   startWalkIn(patient: PatientSummary): void {
+    this.contextRequestId++;
     this.searchResults.set([]);
     const draft = this.encounters().find((item) =>
       item.patientId === patient.id && !item.appointmentId && item.status === 'BORRADOR',
@@ -311,6 +420,7 @@ export class ClinicalWorkspace implements OnInit {
   }
 
   open(encounter: ClinicalEncounter): void {
+    this.contextRequestId++;
     if (this.current()?.id === encounter.id || !canLeaveEditor(this)) return;
     this.displayEncounter(encounter);
   }
@@ -323,6 +433,7 @@ export class ClinicalWorkspace implements OnInit {
     this.error.set('');
     this.success.set('');
     this.patient.set(null);
+    this.resetNoteDrafts();
     this.patch(encounter);
     this.patientApi
       .get(encounter.patientId)
@@ -341,12 +452,14 @@ export class ClinicalWorkspace implements OnInit {
   }
 
   close(): void {
+    this.contextRequestId++;
     if (!canLeaveEditor(this)) return;
     this.patientRequestId++;
     this.current.set(null);
     this.section.set('history');
     this.patient.set(null);
     this.form.reset();
+    this.resetNoteDrafts();
     this.clearMessages();
   }
   backFromRecord(): void {
@@ -368,7 +481,7 @@ export class ClinicalWorkspace implements OnInit {
 
   setSection(section: AttentionSection): void {
     if (this.section() === section || this.isSavingChanges()) return;
-    if (this.section() === 'history' && this.current()?.status === 'BORRADOR' && this.form.dirty) {
+    if (this.section() === 'history' && this.current()?.status === 'BORRADOR' && (this.form.dirty || !!this.pendingNote())) {
       this.save(section);
       return;
     }
@@ -380,7 +493,7 @@ export class ClinicalWorkspace implements OnInit {
 
   hasUnsavedChanges(): boolean {
     return (
-      (this.current()?.status === 'BORRADOR' && this.form.dirty) ||
+      (this.current()?.status === 'BORRADOR' && (this.form.dirty || !!this.pendingNote())) ||
       (this.planEditor()?.hasUnsavedChanges() ?? false) ||
       (this.odontogramEditor()?.hasUnsavedChanges() ?? false)
     );
@@ -400,6 +513,7 @@ export class ClinicalWorkspace implements OnInit {
     const current = this.current();
     if (!current || current.status !== 'BORRADOR') return;
     if (!this.canWrite() || this.saving()) return;
+    if (this.checkPendingNotes()) return;
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       this.error.set('Revisa los valores clínicos fuera de rango.');
@@ -429,6 +543,7 @@ export class ClinicalWorkspace implements OnInit {
     const current = this.current();
     if (!current || !this.canApprove()) return;
     if (current.status !== 'BORRADOR' || this.saving()) return;
+    if (this.checkPendingNotes()) return;
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       this.error.set('Revisa los valores clínicos fuera de rango.');

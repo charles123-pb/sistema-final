@@ -135,7 +135,7 @@ export class PaymentAgreementComponent {
   }
   openPayment(): void {
     const account = this.account();
-    if (!this.canWrite || this.paymentBlocked() || this.saving() || !account || account.balance <= 0 || account.status === 'ANULADA') return;
+    if (!this.canWrite || this.paymentBlocked() || !canLeaveEditor(this) || !account || account.balance <= 0 || account.status === 'ANULADA') return;
     this.operationId = crypto.randomUUID();
     this.form.reset({
       methodId: this.methods()[0]?.id ?? null,
@@ -148,7 +148,7 @@ export class PaymentAgreementComponent {
     setTimeout(() => this.clearSignature());
   }
   reload(): void {
-    if (this.saving()) return;
+    if (!canLeaveEditor(this)) return;
     this.refreshRequested.emit();
     const account = this.account();
     if (account) this.load(account);
@@ -271,6 +271,10 @@ export class PaymentAgreementComponent {
       return;
     }
     const value = this.form.getRawValue();
+    if (!Number.isFinite(value.amount) || value.amount <= 0) {
+      this.error.set('El importe del pago debe ser un número positivo válido.');
+      return;
+    }
     if (value.amount > account.balance) {
       this.error.set('El adelanto supera el saldo pendiente.');
       return;

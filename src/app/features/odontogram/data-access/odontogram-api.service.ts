@@ -105,7 +105,7 @@ export class OdontogramApiService {
       .rpc<number>(name, args, {
         errorMessage: 'No se pudo actualizar el odontograma.',
       })
-      .pipe(switchMap((id) => this.findById(Number(id))));
+      .pipe(switchMap((id) => this.api.refreshAfterMutation(() => this.findById(Number(id)))));
   }
 
   private findById(id: number): Observable<Odontogram> {

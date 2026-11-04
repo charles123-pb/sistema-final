@@ -33,6 +33,7 @@ export class Login {
   }
 
   submit(): void {
+    if (this.loading()) return;
     this.error.set(null);
     if (this.form.invalid) { this.form.markAllAsTouched(); return; }
     this.loading.set(true);

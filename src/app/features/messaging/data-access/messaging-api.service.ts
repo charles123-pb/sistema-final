@@ -86,7 +86,14 @@ export class MessagingApiService {
     });
   }
   markRead(id: number): Observable<void> {
-    return this.rpc<void>('marcar_conversacion_leida', { conversacion_id: id });
+    return this.api.rpc<void>(
+      'marcar_conversacion_leida',
+      { conversacion_id: id },
+      {
+        fallback: undefined,
+        errorMessage: MessagingApiService.errorMessage,
+      },
+    );
   }
   session(): Observable<WhatsAppSession> {
     return this.invoke<WhatsAppSession>('whatsapp-session', {});

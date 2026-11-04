@@ -34,6 +34,37 @@ describe('AdminCenter: perfiles de acceso', () => {
     page = TestBed.runInInjectionContext(() => new AdminCenter());
   });
 
+  afterEach(() => vi.restoreAllMocks());
+
+  it('conserva el formulario de usuario al cancelar su cierre', () => {
+    page.openCreateUser(); page.userForm.controls.fullName.setValue('Usuario en preparación');
+    page.userForm.markAsDirty();
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    page.closeCreateUser(); page.openCreateUser();
+    expect(page.createOpen()).toBe(true);
+    expect(page.userForm.controls.fullName.value).toBe('Usuario en preparación');
+  });
+
+  it('protege cambios de configuración y contraseña ante la recarga', () => {
+    page.settings.set([{ key: 'nombre', value: 'Original', description: '', updatedAt: '', version: 0 }]);
+    page.draft('nombre', 'Pendiente');
+    expect(page.hasUnsavedChanges()).toBe(true);
+    const event = new Event('beforeunload', { cancelable: true });
+    page.beforeUnload(event); expect(event.defaultPrevented).toBe(true);
+    page.draft('nombre', 'Original'); expect(page.hasUnsavedChanges()).toBe(false);
+    page.passwordForm.markAsDirty(); expect(page.hasUnsavedChanges()).toBe(true);
+  });
+
+  it('no pierde valores de configuración pendientes cuando actualiza otros datos', () => {
+    page.settings.set([{ key: 'nombre', value: 'Original', description: '', updatedAt: '', version: 0 }]);
+    page.draft('nombre', 'Pendiente');
+    const api = TestBed.inject(AdminApiService);
+    vi.spyOn(api, 'settings').mockReturnValue(of([{ key: 'nombre', value: 'Original', description: '', updatedAt: '', version: 0 }]));
+    page.load();
+    expect(page.settingDrafts()['nombre']).toBe('Pendiente');
+    expect(page.hasUnsavedChanges()).toBe(true);
+  });
+
   it('crea por defecto al propietario con roles Administrador y Odontólogo', () => {
     page.userForm.setValue({
       fullName: 'Dra. Ana Torres',

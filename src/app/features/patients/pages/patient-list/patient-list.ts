@@ -1,7 +1,7 @@
 import { DatePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { timeout } from 'rxjs';
+import { distinctUntilChanged, map, timeout } from 'rxjs';
 import { READ_REQUEST_TIMEOUT_MS } from '../../../../core/supabase/request-timeout';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import {
@@ -38,15 +38,23 @@ export class PatientList implements OnInit {
   readonly minAge = signal<number | undefined>(undefined);
   readonly maxAge = signal<number | undefined>(undefined);
   readonly page = signal(0);
+  readonly canReadClinical = this.auth.hasPermission('CLINICA_LEER');
   readonly canWrite = signal(this.auth.hasPermission('PACIENTE_ESCRIBIR'));
   private searchTimer?: ReturnType<typeof setTimeout>;
   private loadRequestId = 0;
 
   ngOnInit(): void {
     this.destroyRef.onDestroy(() => clearTimeout(this.searchTimer));
-    const q = this.route.snapshot.queryParamMap.get('q') ?? '';
-    this.query.set(q);
-    this.load();
+    this.route.queryParamMap.pipe(
+      map((params) => params.get('q') ?? ''),
+      distinctUntilChanged(),
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe((q) => {
+      clearTimeout(this.searchTimer);
+      this.query.set(q);
+      this.page.set(0);
+      this.load();
+    });
   }
 
   updateSearch(value: string): void {

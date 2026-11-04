@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { firstValueFrom } from 'rxjs';
 import { SupabaseClientService } from '../../../core/supabase/supabase-client.service';
+import { PatientRow } from '../../../core/supabase/database.types';
 import { PatientPayload } from '../models/patient.models';
 import { PatientApiService } from './patient-api.service';
 
@@ -41,6 +42,25 @@ describe('PatientApiService', () => {
     expect(builder.filters.some(([key, value]) => key === 'or' && String(value).includes('Ana'))).toBe(true);
     expect(builder.filters.some(([key]) => key === 'sexo')).toBe(false);
     expect(result.content).toEqual([]);
+  });
+
+  it('distingue alergias desconocidas de cero alergias cuando falla su consulta', async () => {
+    const row = {
+      id: 1, nombres: 'Ana', apellido_paterno: 'Torres', fecha_nacimiento: '1990-05-20',
+    } as PatientRow;
+    vi.spyOn(builder, 'range').mockResolvedValue({ data: [row] as never[], count: 1, error: null });
+    const allergyQuery = {
+      select: () => allergyQuery,
+      in: () => allergyQuery,
+      eq: () => allergyQuery,
+      then: Promise.resolve({ data: null, error: { code: '42501' } }).then.bind(
+        Promise.resolve({ data: null, error: { code: '42501' } }),
+      ),
+    };
+    const client = TestBed.inject(SupabaseClientService).client;
+    vi.mocked(client.from).mockReturnValueOnce(builder as never).mockReturnValueOnce(allergyQuery as never);
+    const result = await firstValueFrom(service.search({}));
+    expect(result.content[0].allergiesAvailable).toBe(false);
   });
 
   it('sends the complete payload to the patient RPC', async () => {

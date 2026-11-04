@@ -99,6 +99,7 @@ export class FinanceDashboardPage implements OnInit {
   private readonly errors = inject(SupabaseErrorService);
   private readonly route = inject(ActivatedRoute);
   private loadRequestId = 0;
+  private expenseOperation: { fingerprint: string; id: ReturnType<typeof crypto.randomUUID> } | null = null;
   readonly dashboard = signal<FinanceDashboard | null>(null);
   readonly accounts = signal<Account[]>([]);
   readonly contextPatientId = signal<number | null>(null);
@@ -147,10 +148,10 @@ export class FinanceDashboardPage implements OnInit {
     provider: ['', Validators.maxLength(150)],
     documentReference: ['', Validators.maxLength(80)],
     methodId: this.fb.control<number | null>(null, Validators.required),
-    amount: [0, Validators.min(0.01)],
+    amount: [0, [Validators.required, Validators.min(0.01)]],
   });
   readonly cashForm = this.fb.group({
-    amount: [0, [Validators.min(0), Validators.max(9_999_999_999.99)]],
+    amount: [0, [Validators.required, Validators.min(0), Validators.max(9_999_999_999.99)]],
     observation: ['', Validators.maxLength(1000)],
   });
   ngOnInit(): void {
@@ -275,16 +276,22 @@ export class FinanceDashboardPage implements OnInit {
       this.error.set('Este método requiere documento o número de operación.');
       return;
     }
+    const payload = {
+      category: v.category.trim(),
+      description: v.description.trim(),
+      provider: v.provider.trim() || null,
+      documentReference: v.documentReference.trim() || null,
+      paymentMethodId: v.methodId!,
+      amount: v.amount,
+    };
+    const fingerprint = JSON.stringify({ ...payload, cashSessionId: this.cash()!.id });
+    if (this.expenseOperation?.fingerprint !== fingerprint) {
+      this.expenseOperation = { fingerprint, id: crypto.randomUUID() };
+    }
     this.run(
-      this.api.expense({
-        category: v.category.trim(),
-        description: v.description.trim(),
-        provider: v.provider.trim() || null,
-        documentReference: v.documentReference.trim() || null,
-        paymentMethodId: v.methodId!,
-        amount: v.amount,
-      }),
+      this.api.expense(payload, this.expenseOperation.id),
       'Gasto registrado en caja.',
+      () => { this.expenseOperation = null; },
     );
   }
   saveCash(): void {
@@ -349,12 +356,13 @@ export class FinanceDashboardPage implements OnInit {
   label(v: string): string {
     return v.replaceAll('_', ' ').toLowerCase();
   }
-  private run<T>(request: Observable<T>, message: string): void {
+  private run<T>(request: Observable<T>, message: string, done: () => void = () => {}): void {
     if (this.saving()) return;
     this.saving.set(true);
     this.clear();
     request.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: () => {
+        done();
         this.saving.set(false);
         this.modal.set(null);
         this.success.set(message);

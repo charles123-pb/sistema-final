@@ -20,6 +20,7 @@ import {
 } from '@lucide/angular';
 import { BookingRequestApiService } from '../../data-access/booking-request-api.service';
 import { BookingRequest, BookingRequestStatus } from '../../models/booking-request.models';
+import { AuthService } from '../../../../core/auth/auth.service';
 import { SupabaseErrorService } from '../../../../core/supabase/supabase-error.service';
 @Component({
   selector: 'app-booking-requests',
@@ -45,6 +46,7 @@ import { SupabaseErrorService } from '../../../../core/supabase/supabase-error.s
 })
 export class BookingRequests implements OnInit {
   private readonly api = inject(BookingRequestApiService);
+  readonly canWrite = inject(AuthService).hasPermission('CITA_ESCRIBIR');
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private readonly errors = inject(SupabaseErrorService);
@@ -84,7 +86,7 @@ export class BookingRequests implements OnInit {
     this.load();
   }
   manage(item: BookingRequest, status: BookingRequestStatus) {
-    if (this.saving()) return;
+    if (!this.canWrite || this.saving()) return;
     let observation: string | undefined;
     if (status === 'CONTACTADO') {
       const response = prompt('Observación del contacto:');
@@ -110,6 +112,7 @@ export class BookingRequests implements OnInit {
     });
   }
   schedule(item: BookingRequest): void {
+    if (!this.canWrite) return;
     void this.router.navigate(['/sistema/agenda'], {
       queryParams: { solicitud: item.id },
     });

@@ -1,6 +1,6 @@
 import { HttpResponse } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
-import { from, map, Observable, of, switchMap } from 'rxjs';
+import { defer, map, Observable, of, switchMap } from 'rxjs';
 import {
   EmergencyContactRow,
   Json,
@@ -50,35 +50,35 @@ export class PatientApiService {
   private readonly supabase = this.api.client;
 
   search(filter: PatientSearch): Observable<PageResponse<PatientSummary>> {
-    return from(this.searchPatients(filter));
+    return defer(() => this.searchPatients(filter));
   }
 
   get(id: number): Observable<PatientDetail> {
-    return from(this.getPatient(id));
+    return defer(() => this.getPatient(id));
   }
 
   create(payload: PatientPayload): Observable<PatientDetail> {
-    return from(this.supabase.rpc('crear_paciente', { datos: this.toJson(payload) })).pipe(
+    return defer(() => this.supabase.rpc('crear_paciente', { datos: this.toJson(payload) })).pipe(
       switchMap(({ data, error }) => {
         if (error || data === null) this.fail(error, 'No se pudo crear el paciente.');
-        return this.get(Number(data));
+        return this.api.refreshAfterMutation(() => this.get(Number(data)));
       }),
     );
   }
 
   update(id: number, payload: PatientPayload & { version: number }): Observable<PatientDetail> {
-    return from(
+    return defer(() =>
       this.supabase.rpc('actualizar_paciente', { paciente_id: id, datos: this.toJson(payload) }),
     ).pipe(
       switchMap(({ data, error }) => {
         if (error || data === null) this.fail(error, 'No se pudo actualizar el paciente.');
-        return this.get(Number(data));
+        return this.api.refreshAfterMutation(() => this.get(Number(data)));
       }),
     );
   }
 
   changeStatus(id: number, active: boolean, version: number): Observable<PatientDetail> {
-    return from(
+    return defer(() =>
       this.supabase.rpc('cambiar_estado_paciente', {
         paciente_id: id,
         nuevo_activo: active,
@@ -87,7 +87,7 @@ export class PatientApiService {
     ).pipe(
       switchMap(({ data, error }) => {
         if (error || data === null) this.fail(error, 'No se pudo cambiar el estado del paciente.');
-        return this.get(Number(data));
+        return this.api.refreshAfterMutation(() => this.get(Number(data)));
       }),
     );
   }
@@ -100,7 +100,7 @@ export class PatientApiService {
   ): Observable<DuplicateCandidate[]> {
     if (!documentNumber && !mobile && !(birthDate && paternalSurname))
       return of<DuplicateCandidate[]>([]);
-    return from(this.findDuplicates(documentNumber, mobile, birthDate, paternalSurname));
+    return defer(() => this.findDuplicates(documentNumber, mobile, birthDate, paternalSurname));
   }
 
   addEmergencyContact(id: number, payload: EmergencyContactRequest) {
@@ -116,14 +116,14 @@ export class PatientApiService {
     return this.addPatientData<PatientMedication>('MEDICAMENTO', id, payload);
   }
   uploadFile(id: number, file: File, category: PatientFileCategory, description?: string) {
-    return from(this.uploadPatientFile(id, file, category, description));
+    return defer(() => this.uploadPatientFile(id, file, category, description));
   }
   downloadFile(patientId: number, fileId: number) {
-    return from(this.downloadPatientFile(patientId, fileId));
+    return defer(() => this.downloadPatientFile(patientId, fileId));
   }
 
   private addPatientData<T>(type: string, patientId: number, payload: object) {
-    return from(
+    return defer(() =>
       this.supabase.rpc('agregar_dato_paciente', {
         tipo: type,
         paciente_id: patientId,
@@ -239,7 +239,7 @@ export class PatientApiService {
     const totalElements = count ?? 0;
     const totalPages = Math.ceil(totalElements / size);
     return {
-      content: rows.map((row) => this.toSummary(row, allergyCounts.get(row.id) ?? 0)),
+      content: rows.map((row) => this.toSummary(row, allergyCounts?.get(row.id) ?? 0, allergyCounts !== null)),
       page,
       size,
       totalElements,
@@ -305,7 +305,7 @@ export class PatientApiService {
     );
   }
 
-  private async activeAllergyCounts(patientIds: number[]): Promise<Map<number, number>> {
+  private async activeAllergyCounts(patientIds: number[]): Promise<Map<number, number> | null> {
     const result = new Map<number, number>();
     if (!patientIds.length) return result;
     const { data, error } = await this.supabase
@@ -314,7 +314,7 @@ export class PatientApiService {
       .in('paciente_id', patientIds)
       .eq('activo', true)
       .eq('estado', 'ACTIVA');
-    if (error) return result; // RLS may intentionally hide clinical data from non-clinical roles.
+    if (error) return null;
     for (const row of data ?? [])
       result.set(row.paciente_id, (result.get(row.paciente_id) ?? 0) + 1);
     return result;
@@ -370,7 +370,7 @@ export class PatientApiService {
     return [...matches.values()].slice(0, 10);
   }
 
-  private toSummary(row: PatientRow, activeAllergies: number): PatientSummary {
+  private toSummary(row: PatientRow, activeAllergies: number, allergiesAvailable = true): PatientSummary {
     return {
       id: row.id,
       historyNumber: row.numero_historia,
@@ -384,6 +384,7 @@ export class PatientApiService {
       whatsappConsent: row.whatsapp_autorizado,
       email: row.email ?? undefined,
       activeAllergies,
+      allergiesAvailable,
       active: row.activo,
       createdAt: row.creado_en,
       version: row.version,

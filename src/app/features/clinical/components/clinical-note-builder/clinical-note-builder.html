@@ -1,0 +1,24 @@
+<details class="note-builder">
+  <summary>{{ title() }}</summary>
+  <p>{{ description() }}</p>
+  <div [formGroup]="draftForm()">
+    <fieldset [disabled]="disabled()">
+      @for (field of fields(); track field.name) {
+        <label>
+          {{ field.label }}
+          <textarea [formControlName]="field.name" [placeholder]="field.placeholder" rows="3"></textarea>
+          @if (draftForm().get(field.name)?.invalid && draftForm().get(field.name)?.touched) {
+            <small>Revisa el contenido y su longitud.</small>
+          }
+        </label>
+      }
+      <div class="note-actions">
+        <button type="button" [disabled]="!hasContent() || draftForm().invalid" (click)="incorporate.emit()">Incorporar al registro clínico</button>
+        <button type="button" [disabled]="!hasContent()" (click)="discard.emit()">Descartar esta preparación</button>
+      </div>
+    </fieldset>
+  </div>
+  @if (hasContent()) {
+    <p role="status">Estos datos están pendientes de incorporar. Incorpóralos y guarda el borrador para conservarlos.</p>
+  }
+</details>

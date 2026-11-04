@@ -5,7 +5,7 @@ import { AuthService } from '../../../../core/auth/auth.service';
 import { PatientApiService } from '../../../patients/data-access/patient-api.service';
 import { PatientSummary } from '../../../patients/models/patient.models';
 import { MessagingApiService } from '../../data-access/messaging-api.service';
-import { WhatsAppSession } from '../../models/messaging.models';
+import { Conversation, WhatsAppSession } from '../../models/messaging.models';
 import { FollowUpCenter } from './follow-up-center';
 
 describe('FollowUpCenter: ciclo de vida de los diálogos', () => {
@@ -27,7 +27,7 @@ describe('FollowUpCenter: ciclo de vida de los diálogos', () => {
       imports: [FollowUpCenter],
       providers: [
         provideRouter([]),
-        { provide: AuthService, useValue: { hasPermission: () => true } },
+        { provide: AuthService, useValue: { hasPermission: () => true, currentUser: () => null } },
         { provide: PatientApiService, useValue: {} },
         {
           provide: MessagingApiService,
@@ -68,6 +68,131 @@ describe('FollowUpCenter: ciclo de vida de los diálogos', () => {
     page.closeConnectionDialog();
     fixture.destroy();
     vi.useRealTimers();
+  });
+
+  it('prioriza alertas sin alterar el orden de los registros originales y conserva todos los estados', () => {
+    const statuses = [
+      'CERRADO',
+      'REVISADO',
+      'ENVIADO',
+      'PROGRAMADO',
+      'RESPONDIDO',
+      'ALERTA',
+    ] as const;
+    const records = statuses.map((status, index) => ({
+      id: index + 1,
+      patientId: 1,
+      patientName: 'Paciente de prueba',
+      encounterId: 1,
+      scheduledFor: '2026-10-06T12:00:00Z',
+      status,
+      version: 1,
+    }));
+    page.followups.set(records);
+    expect(page.visibleFollowups().map((item) => item.status)).toEqual([...statuses].reverse());
+    expect(page.followups()).toEqual(records);
+    expect(page.pendingReviewCount()).toBe(2);
+    page.followupFilter.set('review');
+    expect(page.visibleFollowups().map((item) => item.status)).toEqual(['ALERTA', 'RESPONDIDO']);
+    page.followupFilter.set('scheduled');
+    expect(page.visibleFollowups().map((item) => item.status)).toEqual(['PROGRAMADO', 'ENVIADO']);
+    page.followupFilter.set('closed');
+    expect(page.visibleFollowups().map((item) => item.status)).toEqual(['REVISADO', 'CERRADO']);
+    page.followupFilter.set('all');
+    expect(page.visibleFollowups()).toHaveLength(6);
+  });
+
+  it('filtra pendientes independientemente de haber leído el mensaje y conserva las conversaciones cerradas en Todos', () => {
+    const base: Conversation = {
+      id: 1,
+      patientName: 'Paciente',
+      phone: '51999999999',
+      status: 'ABIERTA',
+      lastMessage: 'Hola',
+      lastMessageDirection: 'ENTRANTE',
+      unreadCount: 0,
+    };
+    const items: Conversation[] = [
+      base,
+      { ...base, id: 2, lastMessageDirection: 'SALIENTE', unreadCount: 2 },
+      { ...base, id: 3, status: 'DERIVADA', lastMessageDirection: 'SALIENTE' },
+      { ...base, id: 4, status: 'CERRADA' },
+    ];
+    page.conversations.set(items);
+    page.conversationFilter.set('pending');
+    expect(page.visibleConversations().map((item) => item.id)).toEqual([1, 3]);
+    page.conversationFilter.set('unread');
+    expect(page.visibleConversations().map((item) => item.id)).toEqual([2]);
+    page.conversationFilter.set('all');
+    expect(page.visibleConversations()).toEqual(items);
+    expect(page.conversations()).toEqual(items);
+  });
+
+  it('prepara respuestas sin enviar ni reemplazar el texto del doctor', () => {
+    const send = vi.spyOn(TestBed.inject(MessagingApiService), 'send');
+    page.selected.set({
+      id: 1,
+      patientId: 1,
+      patientName: 'Ana',
+      phone: '51999999999',
+      status: 'ABIERTA',
+      lastMessage: '',
+      unreadCount: 0,
+    });
+    page.messageForm.controls.content.setValue('Texto del doctor');
+    page.prepareReply('followup');
+    expect(page.messageForm.controls.content.value).toContain('Texto del doctor\n\nHola Ana,');
+    expect(send).not.toHaveBeenCalled();
+    const draft = page.messageForm.controls.content.value;
+    page.prepareReply('appointment');
+    expect(page.messageForm.controls.content.value).toBe(draft);
+  });
+
+  it('prepara la fecha de la cita en hora de Perú y protege el límite del borrador', () => {
+    page.selected.set({
+      id: 1,
+      patientId: 1,
+      patientName: 'Ana',
+      phone: '51999999999',
+      status: 'ABIERTA',
+      lastMessage: '',
+      unreadCount: 0,
+      appointment: {
+        id: 1,
+        start: '2026-10-07T00:00:00Z',
+        end: '2026-10-07T01:00:00Z',
+        reason: 'Consulta',
+        status: 'PROGRAMADA',
+        professionalName: 'Doctor',
+      },
+    });
+    page.prepareReply('appointment');
+    expect(page.messageForm.controls.content.value).toContain('06/10/2026');
+    page.messageForm.controls.content.setValue('x'.repeat(3999));
+    page.prepareReply('greeting');
+    expect(page.messageForm.controls.content.value).toHaveLength(3999);
+    expect(page.error()).toContain('4000');
+  });
+
+  it('no inicia un refresco encolado al destruir la pantalla', () => {
+    const conversations = vi
+      .spyOn(TestBed.inject(MessagingApiService), 'conversationsPage')
+      .mockReturnValue(NEVER);
+    page.ngOnInit();
+    page.refreshQuietly();
+    page.refreshQuietly();
+    expect(conversations).toHaveBeenCalledTimes(2);
+    fixture.destroy();
+    expect(conversations).toHaveBeenCalledTimes(2);
+  });
+
+  it('rechaza un mensaje nuevo que supera el máximo del chat', () => {
+    const send = vi.spyOn(TestBed.inject(MessagingApiService), 'send');
+    page.selectedPatient.set({ id: 8 } as PatientSummary);
+    page.composeForm.controls.content.setValue('a'.repeat(4001));
+    page.sendNew();
+    expect(send).not.toHaveBeenCalled();
+    expect(page.composeForm.controls.content.invalid).toBe(true);
   });
 
   it('evita solicitudes de QR simultáneas', () => {

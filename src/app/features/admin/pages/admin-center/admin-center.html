@@ -264,14 +264,14 @@
   }
 </section>
 @if (createOpen()) {
-  <button class="scrim" (click)="createOpen.set(false)"></button>
+  <button class="scrim" (click)="closeCreateUser()"></button>
   <aside class="drawer">
     <header>
       <div>
         <small>Seguridad</small>
         <h2>Nuevo usuario</h2>
       </div>
-      <button (click)="createOpen.set(false)"><svg lucideX></svg></button>
+      <button (click)="closeCreateUser()"><svg lucideX></svg></button>
     </header>
     <form [formGroup]="userForm" (ngSubmit)="createUser()">
       @if (error()) {

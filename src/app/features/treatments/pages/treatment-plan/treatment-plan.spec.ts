@@ -56,7 +56,7 @@ describe('Presupuesto desde Atención', () => {
   it('permite consultar un plan aceptado aunque el catálogo falle', () => {
     const plan = { id: 5, patientId: 8, status: 'ACEPTADO', items: [], version: 2 } as unknown as TreatmentPlan;
     TestBed.configureTestingModule({ providers: [
-      { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ encounterId: '3' }) } } },
+      { provide: ActivatedRoute, useValue: { paramMap: of(convertToParamMap({ encounterId: '3' })) } },
       { provide: Router, useValue: { navigate: vi.fn() } },
       { provide: AuthService, useValue: { hasPermission: (permission: string) => permission !== 'FINANZA_LEER' } },
       { provide: ClinicalApiService, useValue: { get: () => of({ id: 3, patientId: 8 } as ClinicalEncounter) } },
@@ -74,7 +74,7 @@ describe('Presupuesto desde Atención', () => {
   });
   it('conserva el procedimiento si se cancela el cierre sin guardar', () => {
     TestBed.configureTestingModule({ providers: [
-      { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ encounterId: '3' }) } } },
+      { provide: ActivatedRoute, useValue: { paramMap: of(convertToParamMap({ encounterId: '3' })) } },
       { provide: Router, useValue: { navigate: vi.fn() } },
       { provide: AuthService, useValue: { hasPermission: () => true } },
       { provide: ClinicalApiService, useValue: {} },

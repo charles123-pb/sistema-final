@@ -7,7 +7,11 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "test:ci": "ng test --watch=false"
+    "test:ci": "ng test --watch=false",
+    "lint": "eslint \"src/**/*.{ts,html}\"",
+    "typecheck": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.spec.json",
+    "check:connection": "node scripts/check-supabase.mjs",
+    "validate": "npm run lint && npm run typecheck && npm run test:ci && npm run build"
   },
   "private": true,
   "overrides": {
@@ -18,12 +22,12 @@
   "packageManager": "npm@11.9.0",
   "dependencies": {
     "@angular/cdk": "^21.2.14",
-    "@angular/common": "^21.2.0",
-    "@angular/compiler": "^21.2.0",
-    "@angular/core": "^21.2.0",
-    "@angular/forms": "^21.2.0",
-    "@angular/platform-browser": "^21.2.0",
-    "@angular/router": "^21.2.0",
+    "@angular/common": "^21.2.25",
+    "@angular/compiler": "^21.2.25",
+    "@angular/core": "^21.2.25",
+    "@angular/forms": "^21.2.25",
+    "@angular/platform-browser": "^21.2.25",
+    "@angular/router": "^21.2.25",
     "@fontsource-variable/inter": "5.3.0",
     "@fontsource-variable/manrope": "5.3.0",
     "@lucide/angular": "^1.37.0",
@@ -32,15 +36,18 @@
     "tslib": "^2.3.0"
   },
   "devDependencies": {
-    "@angular/build": "^21.2.22",
-    "@angular/cli": "^21.2.22",
-    "@angular/compiler-cli": "^21.2.0",
+    "@angular/build": "^21.2.25",
+    "@angular/cli": "^21.2.25",
+    "@angular/compiler-cli": "^21.2.25",
     "@tailwindcss/postcss": "^4.1.12",
+    "angular-eslint": "^21.4.0",
+    "eslint": "^10.12.0",
     "jsdom": "^28.0.0",
     "postcss": "^8.5.3",
     "prettier": "^3.8.1",
     "tailwindcss": "^4.1.12",
     "typescript": "~5.9.2",
+    "typescript-eslint": "^8.0.0",
     "vitest": "^4.0.8"
   }
 }
